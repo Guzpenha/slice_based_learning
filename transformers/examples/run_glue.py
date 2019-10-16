@@ -139,10 +139,10 @@ def train(args, train_dataset, model, tokenizer):
     global_step = 0
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
-    train_iterator = trange(int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0])
+    train_iterator = range(int(args.num_train_epochs))
     set_seed(args)  # Added here for reproductibility (even between python 2 and 3)
     for _ in train_iterator:
-        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
+        epoch_iterator = train_dataloader
         for step, batch in enumerate(epoch_iterator):
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
@@ -183,6 +183,7 @@ def train(args, train_dataset, model, tokenizer):
                         for key, value in results.items():
                             tb_writer.add_scalar('eval_{}'.format(key), value, global_step)
                             ex.log_scalar('eval_{}'.format(key), value, global_step)
+                            logger.info('eval_{}'.format(key) +": "+str(value) + ", step: "+str(global_step))
                     tb_writer.add_scalar('lr', scheduler.get_lr()[0], global_step)
                     tb_writer.add_scalar('loss', (tr_loss - logging_loss)/args.logging_steps, global_step)
                     ex.log_scalar("lr", scheduler.get_lr()[0], global_step)
@@ -238,7 +239,7 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
         preds = None
         out_label_ids = None
 
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        for batch in eval_dataloader:
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
 

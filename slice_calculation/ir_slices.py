@@ -55,7 +55,7 @@ slicing_functions = {
          ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 5)),
          ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 7))],
     "mantis_10":
-        [("query_wc_bigger_than_400", lambda x: query_wc_bigger_than(x, 400)),
+        [("query_wc_bigger_than_512", lambda x: query_wc_bigger_than(x, 512)),
          ("word_in_query_what", lambda x: word_in_query(x, "what")),
          ("word_in_query_how", lambda x: word_in_query(x, "how")),
          ("word_in_query_who", lambda x: word_in_query(x, "who")),
