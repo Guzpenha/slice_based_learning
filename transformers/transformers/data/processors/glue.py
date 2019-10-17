@@ -603,7 +603,7 @@ class QuoraProcessor(DataProcessor):
         return examples
 
 class QAProcessor(DataProcessor):
-    """Processor for the QUORA data set."""
+    """Processor for QA datasets format."""
 
     def get_train_examples(self, data_dir):
         """See base class."""
@@ -637,6 +637,44 @@ class QAProcessor(DataProcessor):
                 InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
+class QAProcessorInverted(DataProcessor):
+    """Processor for QA datasets format, inverting labels."""
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        logger.info("LOOKING AT {}".format(os.path.join(data_dir, "train.tsv")))
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_test_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
+
+    def get_labels(self):
+        """See base class."""
+        return ["0", "1"]
+
+    def _create_examples(self, lines, set_type):
+        """Creates examples for the training and dev sets."""
+        examples = []
+        for (i, line) in enumerate(lines):
+            guid = "%s-%s" % (set_type, i)
+            if line[0] == "0":
+                label = "1"
+            elif line[0] == "1":
+                label = "0"
+            text_a = line[1]
+            text_b = line[2]
+            examples.append(
+                InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+        return examples
+
 glue_tasks_num_labels = {
     "l4": 2,
     "ms_marco_adhoc": 2,
@@ -658,7 +696,7 @@ glue_tasks_num_labels = {
 
 glue_processors = {
     "l4": QAProcessor,
-    "ms_marco_adhoc": QAProcessor,
+    "ms_marco_adhoc": QAProcessorInverted,
     "quora": QuoraProcessor,
     "mantis_10": CRRProcessor,
     "mantis_50": CRRProcessor,
