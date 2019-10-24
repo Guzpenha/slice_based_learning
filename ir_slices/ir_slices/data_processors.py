@@ -26,7 +26,7 @@ def transform_to_q_docs_format(examples):
         docs.append(example[1])
         labels.append(example[2])
 
-        if i == len(examples):
+        if i == (len(examples)-1):
             doc_q_examples.append([example[0], docs, labels])
     return doc_q_examples
 

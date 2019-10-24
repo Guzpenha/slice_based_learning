@@ -35,22 +35,22 @@ try:
 except:
     from tensorboardX import SummaryWriter
 
-from tqdm import tqdm, trange
 from IPython import embed
 
 from transformers import (WEIGHTS_NAME, BertConfig,
-                                  BertMTLForSequenceClassification,
-                                  BertForSequenceClassification, BertTokenizer,
-                                  RobertaConfig,
-                                  RobertaForSequenceClassification,
-                                  RobertaTokenizer,
-                                  XLMConfig, XLMForSequenceClassification,
-                                  XLMTokenizer, XLNetConfig,
-                                  XLNetForSequenceClassification,
-                                  XLNetTokenizer,
-                                  DistilBertConfig,
-                                  DistilBertForSequenceClassification,
-                                  DistilBertTokenizer)
+                          BertMTLForSequenceClassification,
+                          BertForSnorkelSequenceClassification,
+                          BertForSequenceClassification, BertTokenizer,
+                          RobertaConfig,
+                          RobertaForSequenceClassification,
+                          RobertaTokenizer,
+                          XLMConfig, XLMForSequenceClassification,
+                          XLMTokenizer, XLNetConfig,
+                          XLNetForSequenceClassification,
+                          XLNetTokenizer,
+                          DistilBertConfig,
+                          DistilBertForSequenceClassification,
+                          DistilBertTokenizer)
 
 from transformers import AdamW, WarmupLinearSchedule
 
@@ -64,13 +64,22 @@ from transformers import glue_convert_examples_to_features as convert_examples_t
 from sacred import Experiment
 from sacred.observers import FileStorageObserver
 
+from snorkel.slicing import SliceAwareClassifier
+from snorkel.classification import Trainer
+from snorkel.slicing import SFApplier
+from snorkel.classification.data import DictDataset
+
+from ir_slices.data_processors import processors as slicing_processors
+from ir_slices.ir_slices import slicing_functions
+
 ex = Experiment('sacred_bert')
 
 logger = logging.getLogger(__name__)
 
-ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (BertConfig, XLNetConfig, XLMConfig, 
+ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (BertConfig, XLNetConfig, XLMConfig,
                                                                                 RobertaConfig, DistilBertConfig)), ())
 MODEL_CLASSES = {
+    'bert-slice-aware': (BertConfig, BertForSnorkelSequenceClassification, BertTokenizer),
     'bert-mtl': (BertConfig, BertMTLForSequenceClassification, BertTokenizer),
     'bert': (BertConfig, BertForSequenceClassification, BertTokenizer),
     'xlnet': (XLNetConfig, XLNetForSequenceClassification, XLNetTokenizer),
@@ -104,9 +113,10 @@ def train(args, train_dataset, model, tokenizer):
     # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ['bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
+        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+         'weight_decay': args.weight_decay},
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-        ]
+    ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
     if args.fp16:
@@ -132,7 +142,8 @@ def train(args, train_dataset, model, tokenizer):
     logger.info("  Num Epochs = %d", args.num_train_epochs)
     logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
     logger.info("  Total train batch size (w. parallel, distributed & accumulation) = %d",
-                   args.train_batch_size * args.gradient_accumulation_steps * (torch.distributed.get_world_size() if args.local_rank != -1 else 1))
+                args.train_batch_size * args.gradient_accumulation_steps * (
+                    torch.distributed.get_world_size() if args.local_rank != -1 else 1))
     logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", t_total)
 
@@ -141,76 +152,121 @@ def train(args, train_dataset, model, tokenizer):
     model.zero_grad()
     train_iterator = range(int(args.num_train_epochs))
     set_seed(args)  # Added here for reproductibility (even between python 2 and 3)
-    for _ in train_iterator:
-        epoch_iterator = train_dataloader
-        for step, batch in enumerate(epoch_iterator):
-            model.train()
-            batch = tuple(t.to(args.device) for t in batch)
-            inputs = {'input_ids':      batch[0],
-                      'attention_mask': batch[1],
-                      'labels':         batch[3]}
-            if args.model_type != 'distilbert':
-                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet'] else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
-            if args.model_type == 'bert-mtl':
-                inputs["clf_head"] = 0
-            outputs = model(**inputs)
-            loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
-            if args.n_gpu > 1:
-                loss = loss.mean() # mean() to average on multi-gpu parallel training
-            if args.gradient_accumulation_steps > 1:
-                loss = loss / args.gradient_accumulation_steps
+    if args.model_type == 'bert-slice-aware':
+        sfs = slicing_functions[args.task_name]
+        processor = slicing_processors[args.task_name]()
+        examples_train = processor.get_train_examples(args.data_dir)
 
-            if args.fp16:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-                torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
-            else:
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+        snorkel_sf_applier = SFApplier(sfs)
+        snorkel_slices_train = snorkel_sf_applier.apply(examples_train)
+        snorkel_slices_with_ns = []
+        for i, example in enumerate(examples_train):
+            for _ in range(len(example.documents)):
+                snorkel_slices_with_ns.append(snorkel_slices_train[i])
 
-            tr_loss += loss.item()
-            if (step + 1) % args.gradient_accumulation_steps == 0:
-                optimizer.step()
-                scheduler.step()  # Update learning rate schedule
-                model.zero_grad()
-                global_step += 1
+        snorkel_slices_with_ns_np = np.array(snorkel_slices_with_ns, dtype=snorkel_slices_train.dtype)
 
-                if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    # Log metrics
-                    if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
-                        results = evaluate(args, model, tokenizer, sample_percentage=0.01)
-                        for key, value in results.items():
-                            tb_writer.add_scalar('eval_{}'.format(key), value, global_step)
-                            ex.log_scalar('eval_{}'.format(key), value, global_step)
-                            logger.info('eval_{}'.format(key) +": "+str(value) + ", step: "+str(global_step))
-                    tb_writer.add_scalar('lr', scheduler.get_lr()[0], global_step)
-                    tb_writer.add_scalar('loss', (tr_loss - logging_loss)/args.logging_steps, global_step)
-                    ex.log_scalar("lr", scheduler.get_lr()[0], global_step)
-                    ex.log_scalar("loss", (tr_loss - logging_loss)/args.logging_steps, global_step)
-                    logging_loss = tr_loss
+        slice_model = SliceAwareClassifier(
+            task_name='labels',
+            input_data_key='input_ids',
+            base_architecture=model,
+            head_dim=768,
+            slice_names=[sf.name for sf in sfs]
+        )
 
-                if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
-                    # Save model checkpoint
-                    output_dir = os.path.join(args.output_dir, 'checkpoint-{}'.format(global_step))
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    model_to_save = model.module if hasattr(model, 'module') else model  # Take care of distributed/parallel training
-                    model_to_save.save_pretrained(output_dir)
-                    torch.save(args, os.path.join(output_dir, 'training_args.bin'))
-                    logger.info("Saving model checkpoint to %s", output_dir)
+        X_dict = {'input_ids': train_dataset.tensors[0],
+                  'attention_mask': train_dataset.tensors[1],
+                  'token_type_ids': train_dataset.tensors[2]}
+        Y_dict = {'labels': train_dataset.tensors[3]}
 
+        ds = DictDataset(name='labels',
+                         split='train', X_dict=X_dict, Y_dict=Y_dict)
+        train_dl_slice = slice_model.make_slice_dataloader(
+            ds, snorkel_slices_with_ns_np, shuffle=True,
+            batch_size=args.train_batch_size
+        )
+
+        trainer = Trainer(lr=args.learning_rate,
+                          n_epochs=args.num_train_epochs,
+                          l2=args.weight_decay,
+                          max_steps=args.max_steps)
+
+        trainer.fit(slice_model, [train_dl_slice])
+        model = slice_model
+    else:
+        for _ in train_iterator:
+            epoch_iterator = train_dataloader
+            for step, batch in enumerate(epoch_iterator):
+                model.train()
+                batch = tuple(t.to(args.device) for t in batch)
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'labels': batch[3]}
+                if args.model_type != 'distilbert':
+                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert',
+                                                                               'xlnet'] else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
+                if args.model_type == 'bert-mtl':
+                    inputs["clf_head"] = 0
+                outputs = model(**inputs)
+                loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
+
+                if args.n_gpu > 1:
+                    loss = loss.mean()  # mean() to average on multi-gpu parallel training
+                if args.gradient_accumulation_steps > 1:
+                    loss = loss / args.gradient_accumulation_steps
+
+                if args.fp16:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
+                else:
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+
+                tr_loss += loss.item()
+                if (step + 1) % args.gradient_accumulation_steps == 0:
+                    optimizer.step()
+                    scheduler.step()  # Update learning rate schedule
+                    model.zero_grad()
+                    global_step += 1
+
+                    if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
+                        # Log metrics
+                        if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
+                            results = evaluate(args, model, tokenizer, sample_percentage=0.01)
+                            for key, value in results.items():
+                                tb_writer.add_scalar('eval_{}'.format(key), value, global_step)
+                                ex.log_scalar('eval_{}'.format(key), value, global_step)
+                                logger.info('eval_{}'.format(key) + ": " + str(value) + ", step: " + str(global_step))
+                        tb_writer.add_scalar('lr', scheduler.get_lr()[0], global_step)
+                        tb_writer.add_scalar('loss', (tr_loss - logging_loss) / args.logging_steps, global_step)
+                        ex.log_scalar("lr", scheduler.get_lr()[0], global_step)
+                        ex.log_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                        logging_loss = tr_loss
+
+                    if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
+                        # Save model checkpoint
+                        output_dir = os.path.join(args.output_dir, 'checkpoint-{}'.format(global_step))
+                        if not os.path.exists(output_dir):
+                            os.makedirs(output_dir)
+                        model_to_save = model.module if hasattr(model,
+                                                                'module') else model  # Take care of distributed/parallel training
+                        model_to_save.save_pretrained(output_dir)
+                        torch.save(args, os.path.join(output_dir, 'training_args.bin'))
+                        logger.info("Saving model checkpoint to %s", output_dir)
+
+                if args.max_steps > 0 and global_step > args.max_steps:
+                    break
+                    # epoch_iterator.close()
             if args.max_steps > 0 and global_step > args.max_steps:
-                epoch_iterator.close()
                 break
-        if args.max_steps > 0 and global_step > args.max_steps:
-            train_iterator.close()
-            break
+                # train_iterator.close()
 
     if args.local_rank in [-1, 0]:
         tb_writer.close()
 
-    return global_step, tr_loss / global_step
+    return model
 
 def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample_percentage=1.0):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
@@ -239,42 +295,77 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
         preds = None
         out_label_ids = None
 
-        for batch in eval_dataloader:
-            model.eval()
-            batch = tuple(t.to(args.device) for t in batch)
 
-            with torch.no_grad():
-                inputs = {'input_ids':      batch[0],
-                          'attention_mask': batch[1],
-                          'labels':         batch[3]}
-                if args.model_type != 'distilbert':
-                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet'] else None
-                    # XLM, DistilBERT and RoBERTa don't use segment_ids
-                if args.model_type == 'bert-mtl':
-                    inputs["clf_head"] = 0
-                outputs = model(**inputs)
-                tmp_eval_loss, logits = outputs[:2]
+        if args.model_type == 'bert-slice-aware':
+            sfs = slicing_functions[args.task_name]
+            processor = slicing_processors[args.task_name]()
+            examples_dev = processor.get_dev_examples(args.data_dir)
 
-                eval_loss += tmp_eval_loss.mean().item()
-            nb_eval_steps += 1
-            if preds is None:
-                preds = logits.detach().cpu().numpy()
-                out_label_ids = inputs['labels'].detach().cpu().numpy()
-            else:
-                preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-                out_label_ids = np.append(out_label_ids, inputs['labels'].detach().cpu().numpy(), axis=0)
+            snorkel_sf_applier = SFApplier(sfs)
+            snorkel_slices_dev = snorkel_sf_applier.apply(examples_dev)
+            snorkel_slices_with_ns = []
+            for i, example in enumerate(examples_dev):
+                for _ in range(len(example.documents)):
+                    snorkel_slices_with_ns.append(snorkel_slices_dev[i])
 
-            if nb_eval_steps > int(sample_percentage*len(eval_dataset)):
-                break
+            snorkel_slices_with_ns_np = np.array(snorkel_slices_with_ns,
+                                                 dtype=snorkel_slices_dev.dtype)
 
-            if args.debug_mode:
-                break
-        eval_loss = eval_loss / nb_eval_steps
+            X_dict = {'input_ids': eval_dataset.tensors[0],
+                      'attention_mask': eval_dataset.tensors[1],
+                      'token_type_ids': eval_dataset.tensors[2]}
+            Y_dict = {'labels': eval_dataset.tensors[3]}
+
+            ds = DictDataset(name='labels',
+                             split='dev', X_dict=X_dict, Y_dict=Y_dict)
+
+            dev_dl_slice = model.make_slice_dataloader(
+                ds, snorkel_slices_with_ns_np, shuffle=False,
+                batch_size=args.eval_batch_size
+            )
+
+            pred_dict = model.predict(dev_dl_slice,
+                                      debug_mode = args.debug_mode,
+                                      return_preds=True)
+            preds = pred_dict['probs']['labels']
+            out_label_ids = pred_dict['golds']['labels']
+        else:
+            for batch in eval_dataloader:
+                model.eval()
+                batch = tuple(t.to(args.device) for t in batch)
+
+                with torch.no_grad():
+                    inputs = {'input_ids': batch[0],
+                              'attention_mask': batch[1],
+                              'labels': batch[3]}
+                    if args.model_type != 'distilbert':
+                        inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet'] else None
+                        # XLM, DistilBERT and RoBERTa don't use segment_ids
+                    if args.model_type == 'bert-mtl':
+                        inputs["clf_head"] = 0
+
+                    outputs = model(**inputs)
+                    tmp_eval_loss, logits = outputs[:2]
+
+                    eval_loss += tmp_eval_loss.mean().item()
+                nb_eval_steps += 1
+                if preds is None:
+                    preds = logits.detach().cpu().numpy()
+                    out_label_ids = inputs['labels'].detach().cpu().numpy()
+                else:
+                    preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+                    out_label_ids = np.append(out_label_ids, inputs['labels'].detach().cpu().numpy(), axis=0)
+
+                if nb_eval_steps > int(sample_percentage * len(eval_dataset)):
+                    break
+
+                if args.debug_mode:
+                    break
 
         if args.output_mode == "ranking":
             preds = softmax(preds, axis=1)
             preds = preds[:, 1]
-        if args.output_mode == "classification":
+        elif args.output_mode == "classification":
             preds = np.argmax(preds, axis=1)
         elif args.output_mode == "regression":
             preds = np.squeeze(preds)
@@ -283,14 +374,14 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
 
         if output_predictions:
             aps = compute_aps(preds, out_label_ids)
-            output_aps_file = os.path.join(eval_output_dir, prefix,  args.run_id + "/eval_aps.txt")
+            output_aps_file = os.path.join(eval_output_dir, prefix, args.run_id + "/eval_aps.txt")
             with open(output_aps_file, "w") as f:
                 for ap in aps:
-                    f.write(str(ap)+"\n")
+                    f.write(str(ap) + "\n")
             output_preds_file = os.path.join(eval_output_dir, prefix, args.run_id + "/eval_predictions.txt")
             with open(output_preds_file, "w") as writer:
                 for pred in preds:
-                    writer.write(str(pred)+"\n")
+                    writer.write(str(pred) + "\n")
 
     return results
 
@@ -314,17 +405,19 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         label_list = processor.get_labels()
         if task in ['mnli', 'mnli-mm'] and args.model_type in ['roberta']:
             # HACK(label indices are swapped in RoBERTa pretrained model)
-            label_list[1], label_list[2] = label_list[2], label_list[1] 
-        examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(args.data_dir)
+            label_list[1], label_list[2] = label_list[2], label_list[1]
+        examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(
+            args.data_dir)
         features = convert_examples_to_features(examples,
                                                 tokenizer,
                                                 label_list=label_list,
                                                 max_length=args.max_seq_length,
                                                 output_mode=output_mode,
-                                                pad_on_left=bool(args.model_type in ['xlnet']),                 # pad on the left for xlnet
+                                                pad_on_left=bool(args.model_type in ['xlnet']),
+                                                # pad on the left for xlnet
                                                 pad_token=tokenizer.convert_tokens_to_ids([tokenizer.pad_token])[0],
                                                 pad_token_segment_id=4 if args.model_type in ['xlnet'] else 0,
-        )
+                                                )
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
             torch.save(features, cached_features_file)
@@ -362,8 +455,10 @@ def run_experiment(args):
 
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
-    config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path, num_labels=num_labels, finetuning_task=args.task_name)
-    tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name_or_path, do_lower_case=args.do_lower_case)
+    config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
+                                          num_labels=num_labels, finetuning_task=args.task_name)
+    tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
+                                                do_lower_case=args.do_lower_case)
     if args.model_type == 'bert-mtl':
         args.num_mtl_heads = 1
         model = model_class.from_pretrained(args.model_name_or_path, num_mtl_heads=args.num_mtl_heads,
@@ -378,59 +473,61 @@ def run_experiment(args):
 
     logger.info("Training/evaluation parameters %s", args)
 
-
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
-        logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
+        trained_model = train(args, train_dataset, model, tokenizer)
+        logger.info("finished training")
 
-
-    # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
-    if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
-        # Create output directory if needed
-        if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
-            os.makedirs(args.output_dir)
-
-        logger.info("Saving model checkpoint to %s", args.output_dir)
-        # Save a trained model, configuration and tokenizer using `save_pretrained()`.
-        # They can then be reloaded using `from_pretrained()`
-        model_to_save = model.module if hasattr(model, 'module') else model  # Take care of distributed/parallel training
-        model_to_save.save_pretrained(args.output_dir)
-        tokenizer.save_pretrained(args.output_dir)
-
-        # Good practice: save your training arguments together with the trained model
-        torch.save(args, os.path.join(args.output_dir, 'training_args.bin'))
-
-        # Load a trained model and vocabulary that you have fine-tuned
-        if args.model_type == 'bert-mtl':
-            model = model_class.from_pretrained(args.output_dir, num_mtl_heads=args.num_mtl_heads)
-        else:
-            model = model_class.from_pretrained(args.output_dir)
-        model.to(args.device)
-
+    # # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
+    # if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
+    #     # Create output directory if needed
+    #     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
+    #         os.makedirs(args.output_dir)
+    #
+    #     if not os.path.exists((args.output_dir + "/"+args.model_type)) and args.local_rank in [-1, 0]:
+    #         os.makedirs((args.output_dir + "/"+args.model_type))
+    #
+    #     logger.info("Saving model checkpoint to %s", (args.output_dir + "/" + args.model_type))
+    #     # Save a trained model, configuration and tokenizer using `save_pretrained()`.
+    #     # They can then be reloaded using `from_pretrained()`
+    #     model_to_save = model.module if hasattr(model,
+    #                                             'module') else model  # Take care of distributed/parallel training
+    #     model_to_save.save_pretrained((args.output_dir + "/"+ args.model_type))
+    #     tokenizer.save_pretrained((args.output_dir + "/"+ args.model_type))
+    #
+    #     # Good practice: save your training arguments together with the trained model
+    #     torch.save(args, os.path.join((args.output_dir + "/"+ args.model_type), 'training_args.bin'))
+    #
+    #     # Load a trained model and vocabulary that you have fine-tuned
+    #     if args.model_type == 'bert-mtl':
+    #         model = model_class.from_pretrained((args.output_dir + "/"+ args.model_type), num_mtl_heads=args.num_mtl_heads)
+    #     else:
+    #         model = model_class.from_pretrained((args.output_dir + "/"+ args.model_type))
+    #
+    #     model.to(args.device)
 
     # Evaluation
+
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
-        tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
-        checkpoints = [args.output_dir]
-        if args.eval_all_checkpoints:
-            checkpoints = list(os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + '/**/' + WEIGHTS_NAME, recursive=True)))
-            logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
-        logger.info("Evaluate the following checkpoints: %s", checkpoints)
-        for checkpoint in checkpoints:
-            global_step = checkpoint.split('-')[-1] if len(checkpoints) > 1 else ""
-            prefix = checkpoint.split('/')[-1] if checkpoint.find('checkpoint') != -1 else ""
-
-            if args.model_type == 'bert-mtl':
-                model = model_class.from_pretrained(args.output_dir, num_mtl_heads=args.num_mtl_heads)
-            else:
-                model = model_class.from_pretrained(args.output_dir)
-            model.to(args.device)
-            result = evaluate(args, model, tokenizer, prefix=prefix, output_predictions=True)
-            result = dict((k + '_{}'.format(global_step), v) for k, v in result.items())
-            results.update(result)
+        # tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
+        # checkpoints = [(args.output_dir + "/"+ args.model_type)]
+        # if args.eval_all_checkpoints:
+        #     checkpoints = list(
+                # os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + '/**/' + WEIGHTS_NAME, recursive=True)))
+            # logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
+        # logger.info("Evaluate the following checkpoints: %s", checkpoints)
+        # for checkpoint in checkpoints:
+        #     global_step = checkpoint.split('-')[-1] if len(checkpoints) > 1 else ""
+        #     prefix = checkpoint.split('/')[-1] if checkpoint.find('checkpoint') != -1 else ""
+        #
+        #     if args.model_type == 'bert-mtl':
+        #         model = model_class.from_pretrained(args.output_dir, num_mtl_heads=args.num_mtl_heads)
+        #     else:
+        #         model = model_class.from_pretrained(args.output_dir)
+        trained_model.to(args.device)
+        results = evaluate(args, trained_model, tokenizer, output_predictions=True)
 
     return results
 
@@ -443,7 +540,8 @@ def main():
     parser.add_argument("--model_type", default=None, type=str, required=True,
                         help="Model type selected in the list: " + ", ".join(MODEL_CLASSES.keys()))
     parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
-                        help="Path to pre-trained model or shortcut name selected in the list: " + ", ".join(ALL_MODELS))
+                        help="Path to pre-trained model or shortcut name selected in the list: " + ", ".join(
+                            ALL_MODELS))
     parser.add_argument("--task_name", default=None, type=str, required=True,
                         help="The name of the task to train selected in the list: " + ", ".join(processors.keys()))
     parser.add_argument("--output_dir", default=None, type=str, required=True,
@@ -517,8 +615,11 @@ def main():
     parser.add_argument('--debug_mode', action="store_true", help="Debug mode: break after one eval iteration.")
     args = parser.parse_args()
 
-    if os.path.exists(args.output_dir) and os.listdir(args.output_dir) and args.do_train and not args.overwrite_output_dir:
-        raise ValueError("Output directory ({}) already exists and is not empty. Use --overwrite_output_dir to overcome.".format(args.output_dir))
+    if os.path.exists(args.output_dir) and os.listdir(
+            args.output_dir) and args.do_train and not args.overwrite_output_dir:
+        raise ValueError(
+            "Output directory ({}) already exists and is not empty. Use --overwrite_output_dir to overcome.".format(
+                args.output_dir))
 
     # Setup distant debugging if needed
     if args.server_ip and args.server_port:
@@ -540,16 +641,18 @@ def main():
     args.device = device
 
     # Setup logging
-    logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                        datefmt = '%m/%d/%Y %H:%M:%S',
-                        level = logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S',
+                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
     logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-                    args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
+                   args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
 
     # Set seed
     set_seed(args)
     ex.observers.append(FileStorageObserver(args.output_dir))
-    ex.add_config({'args' : args})
+    if args.model_type == 'bert-slice-aware':
+        args.slicing_functions =  [sf.name for sf in slicing_functions[args.task_name]]
+    ex.add_config({'args': args})
     return ex.run()
 
 if __name__ == "__main__":

@@ -696,7 +696,7 @@ glue_tasks_num_labels = {
 
 glue_processors = {
     "l4": QAProcessor,
-    "ms_marco_adhoc": QAProcessorInverted,
+    "ms_marco_adhoc": QAProcessor,
     "quora": QuoraProcessor,
     "mantis_10": CRRProcessor,
     "mantis_50": CRRProcessor,
