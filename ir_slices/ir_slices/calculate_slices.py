@@ -2,7 +2,7 @@ from snorkel.slicing import SFApplier
 from IPython import embed
 
 from ir_slices.data_processors import processors
-from ir_slices.ir_slices import slicing_functions
+from ir_slices.slice_functions import slicing_functions
 
 import numpy as np
 import scipy.stats
@@ -54,11 +54,12 @@ def main():
                 per_slice_results.append([args.task_name, model_name, slice_function.name, metric,\
                                           df_eval[df_eval[slice_function.name]][metric].mean(),
                                           confidence_interval(df_eval[df_eval[slice_function.name]][metric]),
-                                          df_eval[df_eval[slice_function.name]].shape[0]/df_eval.shape[0]])
+                                          df_eval[df_eval[slice_function.name]].shape[0]/df_eval.shape[0],
+                                          df_eval[df_eval[slice_function.name]].shape[0]])
         per_slice_results = pd.DataFrame(per_slice_results,
                                         columns=["task", "model", "slice", "metric",
                                                  "value", "ci",
-                                                 "percentage_of_data"])
+                                                 "%", "N"])
         dfs.append(per_slice_results)
     all_dfs = pd.concat(dfs)
     print(all_dfs.sort_values("value"))

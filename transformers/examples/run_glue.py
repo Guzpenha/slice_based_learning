@@ -70,7 +70,7 @@ from snorkel.slicing import SFApplier
 from snorkel.classification.data import DictDataset
 
 from ir_slices.data_processors import processors as slicing_processors
-from ir_slices.ir_slices import slicing_functions
+from ir_slices.slice_functions import slicing_functions
 
 ex = Experiment('sacred_bert')
 
@@ -188,7 +188,7 @@ def train(args, train_dataset, model, tokenizer):
         )
 
         trainer = Trainer(lr=args.learning_rate,
-                          n_epochs=args.num_train_epochs,
+                          n_epochs=int(args.num_train_epochs),
                           l2=args.weight_decay,
                           max_steps=args.max_steps)
 

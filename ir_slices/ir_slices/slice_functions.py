@@ -12,12 +12,18 @@ def random_slice_percentage(_, percentage):
 # Slicing Functions for IR #
 #--------------------------#
 
+
+# Q based
 def query_wc_bigger_than(x, l):
     return len(x.query[0].split(" ")) > l
 
 def word_in_query(x, word):
     return word in x.query[0]
 
+# Q-D based
+
+
+# Q-D-Y based
 def words_match_count_less_than(x, threshold):
     return len(set(x.query[0].split(" ")).
                intersection(x.documents[0].split(" "))) < threshold
@@ -25,6 +31,7 @@ def words_match_count_less_than(x, threshold):
 #--------------------------#
 # Function generators      #
 #--------------------------#
+
 def make_query_wc_bigger_than_sf(l):
     return SlicingFunction(
         name=f"query_wc_bigger_than_{l}",
@@ -56,18 +63,22 @@ def make_random_slice_percentage_sf(percentage):
 slicing_functions = {
     "quora" : [
         all_instances,
-        make_random_slice_percentage_sf(90),
-        make_random_slice_percentage_sf(10),
         make_query_wc_bigger_than_sf(10),
-        make_word_in_query_sf("what")#,
-        # make_word_in_query_sf("how"),
-        # make_word_in_query_sf("who"),
-        # make_word_in_query_sf("why"),
-        # make_word_in_query_sf("where"),
-        # make_words_match_count_less_than_sf(2),
-        # make_words_match_count_less_than_sf(3)
+        make_query_wc_bigger_than_sf(15),
+        make_word_in_query_sf("who"),
+        make_word_in_query_sf("what"),
+        # make_word_in_query_sf("where"), # only 2% of dev data
+        # make_word_in_query_sf("when"), # only 1% of dev data
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        # make_words_match_count_less_than_sf(3), # only 2% of dev data
+        make_words_match_count_less_than_sf(4),
+        make_words_match_count_less_than_sf(5)
     ],
-    "quora_random" :[
+    "quora_random" : [
+        make_random_slice_percentage_sf(50),
+        make_random_slice_percentage_sf(90),
+        make_random_slice_percentage_sf(30)
     ]
     # "l4":
     #     [("all_instances", lambda x: all_instances(x)),
@@ -121,4 +132,5 @@ slicing_functions = {
     #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 2)),
     #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 3))]
 }
+
 
