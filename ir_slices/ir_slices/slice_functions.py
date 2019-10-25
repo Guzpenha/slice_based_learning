@@ -79,33 +79,21 @@ slicing_functions = {
         make_random_slice_percentage_sf(50),
         make_random_slice_percentage_sf(90),
         make_random_slice_percentage_sf(30)
+    ],
+    "l4": [
+        all_instances,
+        make_query_wc_bigger_than_sf(15),
+        make_query_wc_bigger_than_sf(20),
+        make_query_wc_bigger_than_sf(25),
+        # make_word_in_query_sf("who"), # only 2% of dev data
+        make_word_in_query_sf("what"),
+        # make_word_in_query_sf("where"), # only 2% of dev data
+        make_word_in_query_sf("when"),
+        # make_word_in_query_sf("why"),  # <1% of dev data
+        make_words_match_count_less_than_sf(2),
+        make_words_match_count_less_than_sf(3),
+        make_words_match_count_less_than_sf(4)
     ]
-    # "l4":
-    #     [("all_instances", lambda x: all_instances(x)),
-    #      ("query_wc_bigger_than_5", lambda x: make_query_wc_bigger_than_sf(10)),
-    #      ("query_wc_bigger_than_15", lambda x: query_wc_bigger_than(x, 15)),
-    #      ("word_in_query_what", lambda x: word_in_query(x, "what")),
-    #      # ("word_in_query_how", lambda x: word_in_query(x, "how")), # all queries in L4 start with how
-    #      ("word_in_query_who", lambda x: word_in_query(x, "who")),
-    #      ("word_in_query_why", lambda x: word_in_query(x, "why")),
-    #      ("word_in_query_which", lambda x: word_in_query(x, "which")),
-    #      ("word_in_query_where", lambda x: word_in_query(x, "where")),
-    #      ("words_match_count_less_than_2", lambda x: words_match_count_less_than(x, 2)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 3)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 4))],
-    # "quora" :
-    #     [("all_instances", lambda x: all_instances(x)),
-    #     ("query_wc_bigger_than_5", lambda x : make_query_wc_bigger_than_sf(x, l=10)),
-    #     ("query_wc_bigger_than_15", lambda x : query_wc_bigger_than(x, 15)),
-    #     ("word_in_query_what", lambda x : word_in_query(x, "what")),
-    #     ("word_in_query_how", lambda x : word_in_query(x, "how")),
-    #     ("word_in_query_who", lambda x : word_in_query(x, "who")),
-    #     ("word_in_query_why", lambda x : word_in_query(x, "why")),
-    #     ("word_in_query_which", lambda x : word_in_query(x, "which")),
-    #     ("word_in_query_where", lambda x : word_in_query(x, "where")),
-    #      ("words_match_count_less_than_2", lambda x: words_match_count_less_than(x, 3)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 5)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 7))],
     # "mantis_10":
     #     [("all_instances", lambda x: all_instances(x)),
     #      ("query_wc_bigger_than_512", lambda x: query_wc_bigger_than(x, 512)),

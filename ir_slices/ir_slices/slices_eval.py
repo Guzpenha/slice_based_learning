@@ -28,8 +28,6 @@ def main():
                         help="The input data dir. Should contain the .tsv files (or other data files) for the task.")
     parser.add_argument("--task_name", default=None, type=str, required=True,
                         help="The name of the task to train selected in the list: " + ", ".join(processors.keys()))
-    parser.add_argument("--predictions_file", default="", type=str,
-                        help="The file with the predictions for each <query,document> pair")
     parser.add_argument("--eval_metrics_files", default="", type=str,
                         help="The files with the metrics (e.g. AP, nDCG) for each query, separated by ;")
     parser.add_argument("--eval_models", default="", type=str,
@@ -62,7 +60,8 @@ def main():
                                                  "%", "N"])
         dfs.append(per_slice_results)
     all_dfs = pd.concat(dfs)
-    print(all_dfs.sort_values("value"))
+    print(all_dfs.sort_values(["model", "value"]))
+    all_dfs.sort_values(["model", "value"]).to_csv("../../tmp/res_"+args.task_name+".csv")
 
 if __name__ == "__main__":
     main()
