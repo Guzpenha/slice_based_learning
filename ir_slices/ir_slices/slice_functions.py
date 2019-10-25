@@ -20,17 +20,28 @@ def query_wc_bigger_than(x, l):
 def word_in_query(x, word):
     return word in x.query[0]
 
+def num_turns_bigger_than(x, threshold):
+    return len(x.query) > threshold
+
 # Q-D based
 
 
 # Q-D-Y based
 def words_match_count_less_than(x, threshold):
+    relevant_doc = x.documents[0]
     return len(set(x.query[0].split(" ")).
-               intersection(x.documents[0].split(" "))) < threshold
+               intersection(relevant_doc.split(" "))) < threshold
 
 #--------------------------#
 # Function generators      #
 #--------------------------#
+
+def make_random_slice_percentage_sf(percentage):
+    return SlicingFunction(
+        name=f"random_slice_percentage_{percentage}",
+        f=random_slice_percentage,
+        resources=dict(percentage=percentage),
+    )
 
 def make_query_wc_bigger_than_sf(l):
     return SlicingFunction(
@@ -53,16 +64,16 @@ def make_words_match_count_less_than_sf(threshold):
         resources=dict(threshold=threshold),
     )
 
-def make_random_slice_percentage_sf(percentage):
+def make_num_turns_bigger_than_sf(threshold):
     return SlicingFunction(
-        name=f"random_slice_percentage_{percentage}",
-        f=random_slice_percentage,
-        resources=dict(percentage=percentage),
+        name=f"num_turns_bigger_than_{threshold}",
+        f=num_turns_bigger_than,
+        resources=dict(threshold=threshold),
     )
 
 slicing_functions = {
     "quora" : [
-        all_instances,
+        # all_instances,
         make_query_wc_bigger_than_sf(10),
         make_query_wc_bigger_than_sf(15),
         make_word_in_query_sf("who"),
@@ -81,7 +92,7 @@ slicing_functions = {
         make_random_slice_percentage_sf(30)
     ],
     "l4": [
-        all_instances,
+        # all_instances,
         make_query_wc_bigger_than_sf(15),
         make_query_wc_bigger_than_sf(20),
         make_query_wc_bigger_than_sf(25),
@@ -90,22 +101,48 @@ slicing_functions = {
         # make_word_in_query_sf("where"), # only 2% of dev data
         make_word_in_query_sf("when"),
         # make_word_in_query_sf("why"),  # <1% of dev data
+        # make_word_in_query_sf("how"), every L4 instance is a 'how' question
         make_words_match_count_less_than_sf(2),
         make_words_match_count_less_than_sf(3),
         make_words_match_count_less_than_sf(4)
-    ]
-    # "mantis_10":
-    #     [("all_instances", lambda x: all_instances(x)),
-    #      ("query_wc_bigger_than_512", lambda x: query_wc_bigger_than(x, 512)),
-    #      ("word_in_query_what", lambda x: word_in_query(x, "what")),
-    #      ("word_in_query_how", lambda x: word_in_query(x, "how")),
-    #      ("word_in_query_who", lambda x: word_in_query(x, "who")),
-    #      ("word_in_query_why", lambda x: word_in_query(x, "why")),
-    #      ("word_in_query_which", lambda x: word_in_query(x, "which")),
-    #      ("word_in_query_where", lambda x: word_in_query(x, "where")),
-    #      ("words_match_count_less_than_2", lambda x: words_match_count_less_than(x, 3)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 5)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 7))],
+    ],
+    "mantis_10":[
+        # all_instances,
+        make_query_wc_bigger_than_sf(150),
+        make_query_wc_bigger_than_sf(250),
+        make_query_wc_bigger_than_sf(300),
+        make_query_wc_bigger_than_sf(400),
+        make_word_in_query_sf("who"),
+        make_word_in_query_sf("what"),
+        make_word_in_query_sf("where"),
+        make_word_in_query_sf("when"),
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        make_words_match_count_less_than_sf(2),
+        make_words_match_count_less_than_sf(3),
+        make_words_match_count_less_than_sf(4),
+        make_num_turns_bigger_than_sf(4),
+        make_num_turns_bigger_than_sf(6),
+        make_num_turns_bigger_than_sf(8)],
+    "ms_v2": [
+        # all_instances,
+        make_query_wc_bigger_than_sf(150),
+        make_query_wc_bigger_than_sf(250),
+        make_query_wc_bigger_than_sf(300),
+        make_query_wc_bigger_than_sf(400),
+        make_word_in_query_sf("who"),
+        make_word_in_query_sf("what"),
+        make_word_in_query_sf("where"),
+        make_word_in_query_sf("when"),
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        make_words_match_count_less_than_sf(2),
+        make_words_match_count_less_than_sf(3),
+        make_words_match_count_less_than_sf(4),
+        make_num_turns_bigger_than_sf(4),
+        make_num_turns_bigger_than_sf(6),
+        make_num_turns_bigger_than_sf(8)]
+
     # "ms_marco_adhoc":
     #     [("all_instances", lambda x: all_instances(x)),
     #      ("word_in_query_what", lambda x: word_in_query(x, "what")),
