@@ -141,21 +141,39 @@ slicing_functions = {
         make_words_match_count_less_than_sf(4),
         make_num_turns_bigger_than_sf(4),
         make_num_turns_bigger_than_sf(6),
-        make_num_turns_bigger_than_sf(8)]
-
-    # "ms_marco_adhoc":
-    #     [("all_instances", lambda x: all_instances(x)),
-    #      ("word_in_query_what", lambda x: word_in_query(x, "what")),
-    #      ("word_in_query_how", lambda x: word_in_query(x, "how")),
-    #      ("word_in_query_who", lambda x: word_in_query(x, "who")),
-    #      ("word_in_query_why", lambda x: word_in_query(x, "why")),
-    #      ("word_in_query_which", lambda x: word_in_query(x, "which")),
-    #      ("word_in_query_where", lambda x: word_in_query(x, "where")),
-    #      ("query_wc_bigger_than_5", lambda x : query_wc_bigger_than(x, 10)),
-    #      ("query_wc_bigger_than_15", lambda x : query_wc_bigger_than(x, 15)),
-    #      ("words_match_count_less_than_2", lambda x: words_match_count_less_than(x, 1)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 2)),
-    #      ("words_match_count_less_than_3", lambda x: words_match_count_less_than(x, 3))]
+        make_num_turns_bigger_than_sf(8)],
+    "ms_marco_adhoc":
+        [
+        # all_instances,
+         make_query_wc_bigger_than_sf(5),
+         make_query_wc_bigger_than_sf(8),
+         make_word_in_query_sf("who"),
+         make_word_in_query_sf("what"),
+         make_word_in_query_sf("where"),
+         make_word_in_query_sf("when"),
+         # make_word_in_query_sf("why"), # less than 1%
+         make_word_in_query_sf("how"),
+         make_words_match_count_less_than_sf(2),
+         make_words_match_count_less_than_sf(3),
+         make_words_match_count_less_than_sf(4)],
+    "udc":
+        [
+        # all_instances,
+        make_query_wc_bigger_than_sf(10),
+        make_query_wc_bigger_than_sf(20),
+        make_query_wc_bigger_than_sf(50),
+        # make_word_in_query_sf("who"), # less than 2%
+        make_word_in_query_sf("what"),
+        make_word_in_query_sf("where"),
+        make_word_in_query_sf("when"),
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        make_words_match_count_less_than_sf(1),
+        make_words_match_count_less_than_sf(2),
+        make_words_match_count_less_than_sf(3),
+        make_num_turns_bigger_than_sf(10),
+        make_num_turns_bigger_than_sf(15),
+        make_num_turns_bigger_than_sf(17)]
 }
 
 

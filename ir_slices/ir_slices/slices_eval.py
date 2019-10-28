@@ -1,8 +1,10 @@
 from snorkel.slicing import SFApplier
+from functools import reduce
 from IPython import embed
 
+
 from ir_slices.data_processors import processors
-from ir_slices.slice_functions import slicing_functions
+from ir_slices.slice_functions import slicing_functions, all_instances
 
 import numpy as np
 import scipy.stats
@@ -45,7 +47,7 @@ def main():
         examples = processor.get_dev_examples(args.data_dir)
 
         per_slice_results = []
-        for slice_function in slicing_functions[args.task_name]:
+        for slice_function in slicing_functions[args.task_name] + [all_instances]:
             slice = [slice_function(example) for example in examples]
             df_eval[slice_function.name] = slice
             for metric in eval_metrics:
@@ -61,7 +63,11 @@ def main():
         dfs.append(per_slice_results)
     all_dfs = pd.concat(dfs)
     print(all_dfs.sort_values(["model", "value"]))
-    all_dfs.sort_values(["model", "value"]).to_csv("../../tmp/res_"+args.task_name+".csv")
+    all_dfs.sort_values(["model", "value"]).to_csv("../../tmp/res_"+args.task_name)
+
+    df_final = reduce(lambda left, right: pd.merge(left, right, on='slice'), dfs)
+    df_final['delta'] = df_final['value_y']-df_final['value_x']
+    df_final.to_csv("../../tmp/delta_res_" + args.task_name)
 
 if __name__ == "__main__":
     main()
