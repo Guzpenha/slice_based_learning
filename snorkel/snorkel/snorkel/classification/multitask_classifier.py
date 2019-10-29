@@ -358,7 +358,7 @@ class MultitaskClassifier(nn.Module):
                 # but retrieve from pre-computed results using task_name
                 prob_dict_list[label_name].extend(prob_batch_dict[task_name])
                 gold_dict_list[label_name].extend(Y.cpu().numpy())
-            if debug_mode:
+            if debug_mode and batch_num == 1:
                 break
 
         gold_dict: Dict[str, np.ndarray] = {}

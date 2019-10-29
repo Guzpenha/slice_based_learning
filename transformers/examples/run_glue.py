@@ -22,9 +22,10 @@ import glob
 import logging
 import os
 import random
-
 import numpy as np
 import torch
+
+from functools import reduce
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 from torch.utils.data.distributed import DistributedSampler
@@ -73,7 +74,7 @@ from ir_slices.data_processors import processors as slicing_processors
 from ir_slices.slice_functions import slicing_functions
 
 ex = Experiment('sacred_bert')
-
+representations = []
 logger = logging.getLogger(__name__)
 
 ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (BertConfig, XLNetConfig, XLMConfig,
@@ -190,6 +191,7 @@ def train(args, train_dataset, model, tokenizer):
         trainer = Trainer(lr=args.learning_rate,
                           n_epochs=int(args.num_train_epochs),
                           l2=args.weight_decay,
+                          optimizer="adamax",
                           max_steps=args.max_steps)
 
         trainer.fit(slice_model, [train_dl_slice])
@@ -295,8 +297,15 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
         preds = None
         out_label_ids = None
 
+        def get_cls_rep(m, i, output):
+            representations.append(output[:,0,:]) # get only CLS token rep
 
         if args.model_type == 'bert-slice-aware':
+            if output_predictions:
+                model.base_task.module_pool['base_architecture'].\
+                    module.module.bert.encoder.layer[11].output.dense.\
+                    register_forward_hook(get_cls_rep)
+
             sfs = slicing_functions[args.task_name]
             processor = slicing_processors[args.task_name]()
             examples_dev = processor.get_dev_examples(args.data_dir)
@@ -330,6 +339,9 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
             preds = pred_dict['probs']['labels']
             out_label_ids = pred_dict['golds']['labels']
         else:
+            if output_predictions:
+                model.bert.encoder.layer[11].output.dense. \
+                    register_forward_hook(get_cls_rep)
             for batch in eval_dataloader:
                 model.eval()
                 batch = tuple(t.to(args.device) for t in batch)
@@ -382,6 +394,10 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
             with open(output_preds_file, "w") as writer:
                 for pred in preds:
                     writer.write(str(pred) + "\n")
+            concat_rep = reduce(lambda left, right:
+                                torch.cat((left, right),0), representations)
+            output_rep_file = os.path.join(eval_output_dir, prefix, args.run_id + "/eval_representations.pt")
+            torch.save(concat_rep, output_rep_file)
 
     return results
 

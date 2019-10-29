@@ -2,7 +2,6 @@ from snorkel.slicing import SFApplier
 from functools import reduce
 from IPython import embed
 
-
 from ir_slices.data_processors import processors
 from ir_slices.slice_functions import slicing_functions, all_instances
 
@@ -11,6 +10,7 @@ import scipy.stats
 
 import pandas as pd
 import argparse
+
 
 pd.set_option('display.max_columns', None)
 
@@ -53,12 +53,13 @@ def main():
             for metric in eval_metrics:
                 per_slice_results.append([args.task_name, model_name, slice_function.name, metric,\
                                           df_eval[df_eval[slice_function.name]][metric].mean(),
+                                          df_eval[df_eval[slice_function.name]][metric],
                                           confidence_interval(df_eval[df_eval[slice_function.name]][metric]),
                                           df_eval[df_eval[slice_function.name]].shape[0]/df_eval.shape[0],
                                           df_eval[df_eval[slice_function.name]].shape[0]])
         per_slice_results = pd.DataFrame(per_slice_results,
                                         columns=["task", "model", "slice", "metric",
-                                                 "value", "ci",
+                                                 "value", "all_values", "ci",
                                                  "%", "N"])
         dfs.append(per_slice_results)
     all_dfs = pd.concat(dfs)
@@ -67,6 +68,10 @@ def main():
 
     df_final = reduce(lambda left, right: pd.merge(left, right, on='slice'), dfs)
     df_final['delta'] = df_final['value_y']-df_final['value_x']
+    df_final['p_value'] = df_final.apply(lambda x,f=scipy.stats.ttest_ind:
+                                         f(x['all_values_y'], x['all_values_x'])[1], axis=1)
+    df_final['p_value<0.05'] = df_final['p_value']<0.05
+    df_final['p_value<0.01'] = df_final['p_value']<0.01
     df_final.to_csv("../../tmp/delta_res_" + args.task_name)
 
 if __name__ == "__main__":
