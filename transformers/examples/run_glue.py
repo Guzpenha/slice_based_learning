@@ -298,7 +298,8 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
         out_label_ids = None
 
         def get_cls_rep(m, i, output):
-            representations.append(output[:,0,:]) # get only CLS token rep
+            if(len(representations) < 1000): # avoiding memory issues
+                representations.append(output[:,0,:].cpu()) # get only CLS token rep
 
         if args.model_type == 'bert-slice-aware':
             if output_predictions:
