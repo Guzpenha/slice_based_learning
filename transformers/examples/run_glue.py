@@ -71,7 +71,7 @@ from snorkel.slicing import SFApplier
 from snorkel.classification.data import DictDataset
 
 from ir_slices.data_processors import processors as slicing_processors
-from ir_slices.slice_functions import slicing_functions
+from ir_slices.slice_functions import slicing_functions, random_slicing_functions
 
 ex = Experiment('sacred_bert')
 representations = []
@@ -81,6 +81,7 @@ ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (
                                                                                 RobertaConfig, DistilBertConfig)), ())
 MODEL_CLASSES = {
     'bert-slice-aware': (BertConfig, BertForSnorkelSequenceClassification, BertTokenizer),
+    'bert-slice-aware-random-slices': (BertConfig, BertForSnorkelSequenceClassification, BertTokenizer),
     'bert-mtl': (BertConfig, BertMTLForSequenceClassification, BertTokenizer),
     'bert': (BertConfig, BertForSequenceClassification, BertTokenizer),
     'xlnet': (XLNetConfig, XLNetForSequenceClassification, XLNetTokenizer),
@@ -154,8 +155,11 @@ def train(args, train_dataset, model, tokenizer):
     train_iterator = range(int(args.num_train_epochs))
     set_seed(args)  # Added here for reproductibility (even between python 2 and 3)
 
-    if args.model_type == 'bert-slice-aware':
-        sfs = slicing_functions[args.task_name]
+    if args.model_type == 'bert-slice-aware' or args.model_type == 'bert-slice-aware-random-slices':
+        if args.model_type == 'bert-slice-aware':
+            sfs = slicing_functions[args.task_name]
+        elif args.model_type == 'bert-slice-aware-random-slices':
+            sfs = random_slicing_functions[args.task_name]
         processor = slicing_processors[args.task_name]()
         examples_train = processor.get_train_examples(args.data_dir)
 
@@ -172,7 +176,7 @@ def train(args, train_dataset, model, tokenizer):
             task_name='labels',
             input_data_key='input_ids',
             base_architecture=model,
-            head_dim=768,
+            head_dim= 768, #* args.max_seq_length,
             slice_names=[sf.name for sf in sfs]
         )
 
@@ -301,7 +305,7 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
             if(len(representations) < 1000): # avoiding memory issues
                 representations.append(output[:,0,:].cpu()) # get only CLS token rep
 
-        if args.model_type == 'bert-slice-aware':
+        if args.model_type == 'bert-slice-aware' or args.model_type == 'bert-slice-aware-random-slices':
             if output_predictions:
                 model.base_task.module_pool['base_architecture'].\
                     module.module.bert.encoder.layer[11].output.dense.\
@@ -669,6 +673,8 @@ def main():
     ex.observers.append(FileStorageObserver(args.output_dir))
     if args.model_type == 'bert-slice-aware':
         args.slicing_functions =  [sf.name for sf in slicing_functions[args.task_name]]
+    if args.model_type == 'bert-slice-aware-random-slices':
+        args.slicing_functions = [sf.name for sf in random_slicing_functions[args.task_name]]
     ex.add_config({'args': args})
     return ex.run()
 

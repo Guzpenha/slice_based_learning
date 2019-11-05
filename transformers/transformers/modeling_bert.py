@@ -969,8 +969,10 @@ class BertForSnorkelSequenceClassification(BertPreTrainedModel):
 
         pooled_output = outputs[1]
         pooled_output = self.dropout(pooled_output)
-
         return pooled_output
+
+        # sequence_out = outputs[0].view(outputs[0].shape[0], -1)
+        # return sequence_out
 
 @add_start_docstrings("""Bert Model transformer with several sequence classification heads on top""",
     BERT_START_DOCSTRING, BERT_INPUTS_DOCSTRING)

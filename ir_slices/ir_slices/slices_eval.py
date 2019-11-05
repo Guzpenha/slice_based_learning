@@ -66,7 +66,7 @@ def main():
     parser.add_argument("--eval_models", default="", type=str,
                         help="The names of the models separated by ';'")
     parser.add_argument("--representations_files", default="", type=str,
-                        help="The files with representations of each model separated by ';'")
+                        help="The files with representations (for each {Q,D} pair) of each model separated by ';'")
 
     args = parser.parse_args()
 
@@ -87,7 +87,7 @@ def main():
 
         if rep_file != "":
             df_rep = pd.DataFrame(torch.load(rep_file, map_location='cpu').numpy())
-
+            num_instances_rep = df_rep.shape[0]
             df_tsne = TSNE(n_components=2, verbose=True).fit_transform(df_rep)
             df_rep['TSNE_0'] = df_tsne[:, 0]
             df_rep['TSNE_1'] = df_tsne[:, 1]
@@ -97,16 +97,18 @@ def main():
             df_rep['PC_1'] = df_pca[:, 1]
 
             df_rep['model'] = model_name
-            df_rep[eval_metrics[0]] = unpack_x_per_doc(df_eval[eval_metrics[0]].values, examples)
-            df_rep['relevant'] = unpack_rel_per_doc(examples)
-            df_rep['q_id'] = unpack_qid_per_doc(examples)
+            df_rep[eval_metrics[0]] = unpack_x_per_doc(df_eval[eval_metrics[0]].values,
+                                                       examples)[:num_instances_rep]
+            df_rep['relevant'] = unpack_rel_per_doc(examples)[:num_instances_rep]
+            df_rep['q_id'] = unpack_qid_per_doc(examples)[:num_instances_rep]
 
         per_slice_results = []
         for slice_function in slicing_functions[args.task_name] + [all_instances]:
             slice = [slice_function(example) for example in examples]
             df_eval[slice_function.name] = slice
             if rep_file != "":
-                df_rep[slice_function.name] = unpack_x_per_doc(slice, examples)
+                df_rep[slice_function.name] = unpack_x_per_doc(slice,
+                                                               examples)[:num_instances_rep]
             for metric in eval_metrics:
                 per_slice_results.append([args.task_name, model_name, slice_function.name, metric,\
                                           df_eval[df_eval[slice_function.name]][metric].mean(),

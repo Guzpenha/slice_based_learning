@@ -7,12 +7,14 @@ from snorkel.slicing import SlicingFunction, slicing_function
 
 from IPython import embed
 
+random_sf_count = 0
+
 @slicing_function()
 def all_instances(_):
     return True
 
 def random_slice_percentage(_, percentage):
-    return random.randint(1,101) <  (percentage)
+    return random.randint(0,100) <=  (percentage)
 
 #--------------------------#
 # Slicing Functions for IR #
@@ -51,9 +53,9 @@ def docs_sim_to_rel_bigger_than(x, threshold, top_k):
 # Function generators      #
 #--------------------------#
 
-def make_random_slice_percentage_sf(percentage):
+def make_random_slice_percentage_sf(percentage, count_for_name):
     return SlicingFunction(
-        name=f"random_slice_percentage_{percentage}",
+        name=f"random_slice_percentage_{percentage}_{count_for_name}",
         f=random_slice_percentage,
         resources=dict(percentage=percentage),
     )
@@ -111,11 +113,6 @@ slicing_functions = {
         # make_words_match_count_less_than_sf(3), # only 2% of dev data
         make_words_match_count_less_than_sf(4),
         make_words_match_count_less_than_sf(5)
-    ],
-    "quora_random" : [
-        make_random_slice_percentage_sf(50),
-        make_random_slice_percentage_sf(90),
-        make_random_slice_percentage_sf(30)
     ],
     "l4": [
         # all_instances,
@@ -213,3 +210,80 @@ slicing_functions = {
 }
 
 
+random_slicing_functions = {
+    "quora" : [
+        # all_instances,
+        make_random_slice_percentage_sf(50,1),
+        make_random_slice_percentage_sf(50,2),
+        make_random_slice_percentage_sf(50,3),
+        make_random_slice_percentage_sf(50,4),
+        make_random_slice_percentage_sf(50,5),
+        make_random_slice_percentage_sf(50,6),
+        make_random_slice_percentage_sf(50,7),
+        make_random_slice_percentage_sf(50,8),
+        make_random_slice_percentage_sf(50,9),
+        make_random_slice_percentage_sf(50,10)
+    ],
+    "l4": [
+        # all_instances,
+        make_random_slice_percentage_sf(50,1),
+        make_random_slice_percentage_sf(50,2),
+        make_random_slice_percentage_sf(50,3),
+        make_random_slice_percentage_sf(50,4),
+        make_random_slice_percentage_sf(50,5),
+        make_random_slice_percentage_sf(50,6),
+        make_random_slice_percentage_sf(50,7),
+        make_random_slice_percentage_sf(50,8),
+        make_random_slice_percentage_sf(50,9),
+        make_random_slice_percentage_sf(50,10)
+    ],
+    "mantis_10":[
+        # all_instances,
+        make_random_slice_percentage_sf(50,1),
+        make_random_slice_percentage_sf(50,2),
+        make_random_slice_percentage_sf(50,3),
+        make_random_slice_percentage_sf(50,4),
+        make_random_slice_percentage_sf(50,5),
+        make_random_slice_percentage_sf(50,6),
+        make_random_slice_percentage_sf(50,7),
+        make_random_slice_percentage_sf(50,8),
+        make_random_slice_percentage_sf(50,9),
+        make_random_slice_percentage_sf(50,10)],
+    "ms_v2": [
+        # all_instances,
+        make_random_slice_percentage_sf(50,1),
+        make_random_slice_percentage_sf(50,2),
+        make_random_slice_percentage_sf(50,3),
+        make_random_slice_percentage_sf(50,4),
+        make_random_slice_percentage_sf(50,5),
+        make_random_slice_percentage_sf(50,6),
+        make_random_slice_percentage_sf(50,7),
+        make_random_slice_percentage_sf(50,8),
+        make_random_slice_percentage_sf(50,9),
+        make_random_slice_percentage_sf(50,10)],
+    "ms_marco_adhoc":
+        [
+        # all_instances,
+        make_random_slice_percentage_sf(50, 1),
+        make_random_slice_percentage_sf(50, 2),
+        make_random_slice_percentage_sf(50, 3),
+        make_random_slice_percentage_sf(50, 4),
+        make_random_slice_percentage_sf(50, 5),
+        make_random_slice_percentage_sf(50, 6),
+        make_random_slice_percentage_sf(50, 7),
+        make_random_slice_percentage_sf(50, 8),
+        make_random_slice_percentage_sf(50, 9),
+        make_random_slice_percentage_sf(50, 10)],
+    "udc":
+        [
+        make_random_slice_percentage_sf(50, 1),
+        make_random_slice_percentage_sf(50, 2),
+        make_random_slice_percentage_sf(50, 3),
+        make_random_slice_percentage_sf(50, 4),
+        make_random_slice_percentage_sf(50, 5),
+        make_random_slice_percentage_sf(50, 6),
+        make_random_slice_percentage_sf(50, 7),
+        make_random_slice_percentage_sf(50, 8),
+        make_random_slice_percentage_sf(50, 9),
+        make_random_slice_percentage_sf(50, 10)]
+}
