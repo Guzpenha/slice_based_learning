@@ -500,6 +500,12 @@ def run_experiment(args):
         trained_model = train(args, train_dataset, model, tokenizer)
         logger.info("finished training")
 
+        if args.save_model and args.model_type == 'bert':
+            run_output_dir = os.path.join(args.output_dir, args.run_id)
+            os.makedirs((run_output_dir + "/" + args.model_type))
+            trained_model.save_pretrained(run_output_dir + "/"+ args.model_type)
+            tokenizer.save_pretrained(run_output_dir + "/"+ args.model_type)
+
     # # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # if args.do_train and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
     #     # Create output directory if needed
@@ -531,7 +537,7 @@ def run_experiment(args):
     # Evaluation
 
     results = {}
-    if args.do_eval and args.local_rank in [-1, 0]:
+    if args.do_eval and args.local_rank in [-1, 0] and args.do_train: #only evaluate if train due to model being in mem
         # tokenizer = tokenizer_class.from_pretrained(args.output_dir, do_lower_case=args.do_lower_case)
         # checkpoints = [(args.output_dir + "/"+ args.model_type)]
         # if args.eval_all_checkpoints:
@@ -582,6 +588,8 @@ def main():
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
+    parser.add_argument("--save_model", action='store_true',
+                        help="Whether to save the model.")
     parser.add_argument("--evaluate_during_training", action='store_true',
                         help="Rul evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',
