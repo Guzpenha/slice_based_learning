@@ -1,5 +1,6 @@
 from snorkel.slicing import SFApplier
 from IPython import embed
+from tqdm import tqdm
 
 from ir_slices.data_processors import processors
 from ir_slices.slice_functions import slicing_functions, random_slicing_functions
@@ -34,12 +35,13 @@ def main():
     processor = processors[args.task_name]()
     examples = processor.get_dev_examples(args.data_dir)
 
-    for slice_function in random_slicing_functions[args.task_name]:
-    # for slice_function in slicing_functions[args.task_name]:
-        slice = [slice_function(example) for example in examples]
+    # for slice_function in random_slicing_functions[args.task_name]:
+    for slice_function in slicing_functions[args.task_name]:
+        slice = []
+        for example in tqdm(examples, desc=slice_function.name):
+            slice.append(slice_function(example))
         print(slice_function.name)
         print(sum(slice))
         print(sum(slice)/len(slice))
-
 if __name__ == "__main__":
     main()

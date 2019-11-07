@@ -35,7 +35,8 @@ def glue_convert_examples_to_features(examples, tokenizer,
                                       pad_on_left=False,
                                       pad_token=0,
                                       pad_token_segment_id=0,
-                                      mask_padding_with_zero=True):
+                                      mask_padding_with_zero=True,
+                                      verbose=False):
     """
     Loads a data file into a list of ``InputFeatures``
 
@@ -76,7 +77,7 @@ def glue_convert_examples_to_features(examples, tokenizer,
 
     features = []
     for (ex_index, example) in enumerate(examples):
-        if ex_index % 10000 == 0:
+        if ex_index % 10000 == 0 and verbose:
             logger.info("Writing example %d" % (ex_index))
         if is_tf_dataset:
             example = processor.get_example_from_tensor_dict(example)
@@ -115,7 +116,7 @@ def glue_convert_examples_to_features(examples, tokenizer,
         else:
             raise KeyError(output_mode)
 
-        if ex_index < 5:
+        if ex_index < 5 and verbose:
             logger.info("*** Example ***")
             logger.info("guid: %s" % (example.guid))
             logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
