@@ -86,13 +86,14 @@ def fine_tuned_bert_pred_diff_smaller_than(x, threshold,
     all_labels = torch.tensor([f.label for f in features], dtype=torch.long)
     dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_labels)
     sampler = SequentialSampler(dataset)
-    dataloader = DataLoader(dataset, sampler=sampler, batch_size=len(instances))
+    dataloader = DataLoader(dataset, sampler=sampler, batch_size=8)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    preds = None
+
     for batch in dataloader:
         model.eval()
         batch = tuple(t.to(device) for t in batch)
-
         with torch.no_grad():
             inputs = {'input_ids': batch[0],
                       'attention_mask': batch[1],
@@ -100,13 +101,19 @@ def fine_tuned_bert_pred_diff_smaller_than(x, threshold,
                       'labels': batch[3]}
             outputs = model(**inputs)
             _, logits = outputs[:2]
-            preds = logits.detach().cpu().numpy()
-            preds = softmax(preds, axis=1)
-            preds = preds[:, 1]
+
+            if preds is None:
+                preds = logits.detach().cpu().numpy()
+            else:
+                preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+
+    del model
+    preds = softmax(preds, axis=1)
+    preds = preds[:, 1]
 
     # relevant document is always the first one
     diff = preds[0] - max(preds[1:])
-
+    print(diff)
     return diff < threshold
 
 #--------------------------#
@@ -170,7 +177,8 @@ fine_tuned_bert_paths = {
     # 'quora': '../../data/quora_output/bert/',
     # 'l4': '../../data/l4_output/bert/',
     # 'mantis_10': '../../data/mantis_10_output/bert/',
-    'ms_v2': '../../data/ms_v2_output/bert/',
+    # 'ms_v2': '../../data/ms_v2_output/bert/',
+    'ms_v2': '/tudelft.net/staff-umbrella/conversationalsearch/slice_based_learning/data/ms_v2_output/bert',
     # 'ms_marco_adhoc': '../../data/ms_marco_adhoc_output/bert/',
     # 'udc': '../../data/udc_output/bert/'
 }
@@ -185,9 +193,9 @@ for finetuning_task in fine_tuned_bert_paths.keys():
 slicing_functions = {
     "quora" : [
         # all_instances,
-        make_fine_tuned_bert_pred_diff_smaller_than_sf('ms_v2', 0.2,
-                                                       fine_tuned_models['ms_v2'][0],
-                                                       fine_tuned_models['ms_v2'][1]),
+        # make_fine_tuned_bert_pred_diff_smaller_than_sf('ms_v2', 0.2,
+        #                                                fine_tuned_models['ms_v2'][0],
+        #                                                fine_tuned_models['ms_v2'][1]),
         make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
         make_docs_sim_to_rel_bigger_than_sf(0.4, 3),
         make_docs_sim_to_rel_bigger_than_sf(0.5, 3),
