@@ -190,9 +190,9 @@ def make_query_cat_in_sf(cat_dict, category):
 base_path = "/tudelft.net/staff-umbrella/conversationalsearch/slice_based_learning/"
 
 fine_tuned_bert_paths = {
-    # 'quora': base_path+'data/quora_output/bert',
+    'quora': base_path+'data/quora_output/bert',
     # 'l4': base_path+'data/l4_output/bert',
-    'mantis_10': base_path+'data/mantis_10_output/bert',
+    # 'mantis_10': base_path+'data/mantis_10_output/bert',
     # 'ms_v2': base_path+'data/ms_v2_output/bert',
     # 'ms_marco_adhoc': base_path+'data/ms_marco_adhoc_output/bert',
     # 'udc': base_path+'data/udc_output/bert'
@@ -216,20 +216,20 @@ for task in ['ms_v2', 'mantis_10']:
                 cat_dicts[task] = pickle.load(f)
 
 slicing_functions = {
-    # "quora" : [
-        # make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
-        #                                                fine_tuned_models['quora'][0],
-        #                                                fine_tuned_models['quora'][1]),
-        # make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
-        # make_query_wc_bigger_than_sf(10),
-        # make_word_in_query_sf("who"),
-        # make_word_in_query_sf("what"),
-        # make_word_in_query_sf("where"), # only 2% of dev data
-        # make_word_in_query_sf("when"), # only 1% of dev data
-        # make_word_in_query_sf("why"),
-        # make_word_in_query_sf("how"),
-        # make_words_match_count_less_than_sf(5)
-    # ],
+    "quora" : [
+        make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
+                                                       fine_tuned_models['quora'][0],
+                                                       fine_tuned_models['quora'][1]),
+        make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
+        make_query_wc_bigger_than_sf(10),
+        make_word_in_query_sf("who"),
+        make_word_in_query_sf("what"),
+        make_word_in_query_sf("where"), # only 2% of dev data
+        make_word_in_query_sf("when"), # only 1% of dev data
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        make_words_match_count_less_than_sf(5)
+    ],
     # "l4": [
     #     make_fine_tuned_bert_pred_diff_smaller_than_sf('l4', 0.2,
     #                                                    fine_tuned_models['l4'][0],
@@ -244,31 +244,31 @@ slicing_functions = {
     #     # make_word_in_query_sf("how"), every L4 instance is a 'how' question
     #     make_words_match_count_less_than_sf(4)
     # ],
-    "mantis_10":[
-        make_fine_tuned_bert_pred_diff_smaller_than_sf('mantis_10', 0.2,
-                                                       fine_tuned_models['mantis_10'][0],
-                                                       fine_tuned_models['mantis_10'][1]),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "apple"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "electronics"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "dba"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "physics"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "english"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "security"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "gaming"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "gis"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "askubuntu"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'], "stats"),
-        make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
-        make_query_wc_bigger_than_sf(400),
-        make_word_in_query_sf("who"),
-        make_word_in_query_sf("what"),
-        make_word_in_query_sf("where"),
-        make_word_in_query_sf("when"),
-        make_word_in_query_sf("why"),
-        make_word_in_query_sf("how"),
-        make_words_match_count_less_than_sf(4),
-        make_num_turns_bigger_than_sf(6)
-    ],
+    # "mantis_10":[
+    #     make_fine_tuned_bert_pred_diff_smaller_than_sf('mantis_10', 0.2,
+    #                                                    fine_tuned_models['mantis_10'][0],
+    #                                                    fine_tuned_models['mantis_10'][1]),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "apple"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "electronics"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "dba"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "physics"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "english"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "security"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "gaming"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "gis"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "askubuntu"),
+    #     make_query_cat_in_sf(cat_dicts['mantis_10'], "stats"),
+    #     make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
+    #     make_query_wc_bigger_than_sf(400),
+    #     make_word_in_query_sf("who"),
+    #     make_word_in_query_sf("what"),
+    #     make_word_in_query_sf("where"),
+    #     make_word_in_query_sf("when"),
+    #     make_word_in_query_sf("why"),
+    #     make_word_in_query_sf("how"),
+    #     make_words_match_count_less_than_sf(4),
+    #     make_num_turns_bigger_than_sf(6)
+    # ],
     # "ms_v2": [
     #     # make_fine_tuned_bert_pred_diff_smaller_than_sf('ms_v2', 0.1,
     #     #                                                fine_tuned_models['ms_v2'][0],

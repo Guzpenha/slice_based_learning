@@ -19,6 +19,7 @@ from __future__ import absolute_import, division, print_function
 
 import argparse
 import glob
+import pickle
 import logging
 import os
 import random
@@ -343,6 +344,8 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
                                       return_preds=True)
             preds = pred_dict['probs']['labels']
             out_label_ids = pred_dict['golds']['labels']
+
+            slice_membership_scores = model.score([dev_dl_slice])
         else:
             if output_predictions:
                 model.bert.encoder.layer[11].output.dense. \
@@ -403,6 +406,10 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
                                 torch.cat((left, right),0), representations)
             output_rep_file = os.path.join(eval_output_dir, prefix, args.run_id + "/eval_representations.pt")
             torch.save(concat_rep, output_rep_file)
+            if args.model_type == 'bert-slice-aware':
+                output_slice_membership_f = os.path.join(eval_output_dir, prefix, args.run_id + "/slices_membership_scores.pickle")
+                with open(output_slice_membership_f, "wb") as f:
+                    pickle.dump(slice_membership_scores, f)
 
     return results
 
