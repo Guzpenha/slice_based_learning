@@ -3,6 +3,9 @@ from functools import reduce
 from IPython import embed
 from tqdm import tqdm
 
+import os
+import pickle
+
 from ir_slices.data_processors import processors
 from ir_slices.slice_functions import slicing_functions, all_instances
 
@@ -91,13 +94,13 @@ def main():
         if rep_file != "":
             df_rep = pd.DataFrame(torch.load(rep_file, map_location='cpu').numpy())
             num_instances_rep = df_rep.shape[0]
-            # df_tsne = TSNE(n_components=2, verbose=True).fit_transform(df_rep)
-            # df_rep['TSNE_0'] = df_tsne[:, 0]
-            # df_rep['TSNE_1'] = df_tsne[:, 1]
-            #
-            # df_pca = PCA(n_components=2).fit_transform(df_rep)
-            # df_rep['PC_0'] = df_pca[:, 0]
-            # df_rep['PC_1'] = df_pca[:, 1]
+            df_tsne = TSNE(n_components=2, verbose=True).fit_transform(df_rep)
+            df_rep['TSNE_0'] = df_tsne[:, 0]
+            df_rep['TSNE_1'] = df_tsne[:, 1]
+
+            df_pca = PCA(n_components=2).fit_transform(df_rep)
+            df_rep['PC_0'] = df_pca[:, 0]
+            df_rep['PC_1'] = df_pca[:, 1]
 
             df_rep['model'] = model_name
             df_rep[eval_metrics[0]] = unpack_x_per_doc(df_eval[eval_metrics[0]].values,
@@ -107,7 +110,18 @@ def main():
 
         per_slice_results = []
         for slice_function in slicing_functions[args.task_name] + [all_instances]:
-            slice = [slice_function(example) for example in tqdm(examples)]
+            # This only acepts a single fine tuned bert slicing function for each task.
+            if "fine_tuned_bert_pred" in slice_function.name:
+                if os.path.isfile(args.data_dir+"/cached_ft_predictions_valid.pickle"):
+                    with open(args.data_dir+"/cached_ft_predictions_valid.pickle", "rb") as f:
+                        print("loaded pickle for fine tuned predictions")
+                        slice = pickle.load(f)
+                else:
+                    slice = [slice_function(example) for example in tqdm(examples)]
+                    with open(args.data_dir+"/cached_ft_predictions_valid.pickle", "wb") as f:
+                        pickle.dump(slice, f)
+            else:
+                slice = [slice_function(example) for example in tqdm(examples)]
             df_eval[slice_function.name] = slice
             if rep_file != "":
                 df_rep[slice_function.name] = unpack_x_per_doc(slice,

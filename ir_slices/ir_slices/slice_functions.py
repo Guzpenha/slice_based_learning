@@ -2,6 +2,7 @@ import numpy as np
 import random
 import torch
 import pickle
+import os
 
 from torch.utils.data import (DataLoader, SequentialSampler,
                               TensorDataset)
@@ -205,31 +206,29 @@ for task in fine_tuned_bert_paths.keys():
     model = BertForSequenceClassification.from_pretrained(model_path)
     fine_tuned_models[task] = (model, tokenizer)
 
-
-# TODO: HPC \/
-data_split = 'valid'
-# data_split = 'train'
 cat_dicts = {}
 for task in ['ms_v2', 'mantis_10']:
-    cat_dicts[task] = {}
-    for split in [data_split]: #['train', 'valid', 'test']:
+    for split in ['train', 'valid']:#, 'test']:
         with open(base_path+"data/"+task+"/cats_"+split+".pickle", 'rb') as f:
-            cat_dicts[task][split] = pickle.load(f)
+            if task in cat_dicts:
+                cat_dicts[task].update(pickle.load(f))
+            else:
+                cat_dicts[task] = pickle.load(f)
 
 slicing_functions = {
     # "quora" : [
-    #     make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
-    #                                                    fine_tuned_models['quora'][0],
-    #                                                    fine_tuned_models['quora'][1]),
-    #     make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
-    #     make_query_wc_bigger_than_sf(10),
-    #     make_word_in_query_sf("who"),
-    #     make_word_in_query_sf("what"),
-    #     make_word_in_query_sf("where"), # only 2% of dev data
-    #     make_word_in_query_sf("when"), # only 1% of dev data
-    #     make_word_in_query_sf("why"),
-    #     make_word_in_query_sf("how"),
-    #     make_words_match_count_less_than_sf(5)
+        # make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
+        #                                                fine_tuned_models['quora'][0],
+        #                                                fine_tuned_models['quora'][1]),
+        # make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
+        # make_query_wc_bigger_than_sf(10),
+        # make_word_in_query_sf("who"),
+        # make_word_in_query_sf("what"),
+        # make_word_in_query_sf("where"), # only 2% of dev data
+        # make_word_in_query_sf("when"), # only 1% of dev data
+        # make_word_in_query_sf("why"),
+        # make_word_in_query_sf("how"),
+        # make_words_match_count_less_than_sf(5)
     # ],
     # "l4": [
     #     make_fine_tuned_bert_pred_diff_smaller_than_sf('l4', 0.2,
@@ -249,16 +248,16 @@ slicing_functions = {
         make_fine_tuned_bert_pred_diff_smaller_than_sf('mantis_10', 0.2,
                                                        fine_tuned_models['mantis_10'][0],
                                                        fine_tuned_models['mantis_10'][1]),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "apple"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "electronics"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "dba"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "physics"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "english"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "security"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "gaming"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "gis"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "askubuntu"),
-        make_query_cat_in_sf(cat_dicts['mantis_10'][data_split], "stats"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "apple"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "electronics"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "dba"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "physics"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "english"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "security"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "gaming"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "gis"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "askubuntu"),
+        make_query_cat_in_sf(cat_dicts['mantis_10'], "stats"),
         make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
         make_query_wc_bigger_than_sf(400),
         make_word_in_query_sf("who"),
@@ -274,16 +273,16 @@ slicing_functions = {
     #     # make_fine_tuned_bert_pred_diff_smaller_than_sf('ms_v2', 0.1,
     #     #                                                fine_tuned_models['ms_v2'][0],
     #     #                                                fine_tuned_models['ms_v2'][1]),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Windows_Insider_Preview"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Onenote"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Skype_Windows_Desktop"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Access"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Skype_Windows_10"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Onedrive"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Onedrive_Business"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Lumia"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Games_Windows_10"),
-    #     make_query_cat_in_sf(cat_dicts['ms_v2'][data_split], "Defender"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Windows_Insider_Preview"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Onenote"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Skype_Windows_Desktop"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Access"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Skype_Windows_10"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Onedrive"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Onedrive_Business"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Lumia"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Games_Windows_10"),
+    #     make_query_cat_in_sf(cat_dicts['ms_v2'], "Defender"),
     #     make_docs_sim_to_rel_bigger_than_sf(0.2, 2),
     #     make_query_wc_bigger_than_sf(150),
     #     make_word_in_query_sf("who"),
