@@ -71,6 +71,8 @@ def main():
                         help="The names of the models separated by ';'")
     parser.add_argument("--representations_files", default="", type=str,
                         help="The files with representations (for each {Q,D} pair) of each model separated by ';'")
+    parser.add_argument("--slice_scores_file", default="", type=str,
+                        help="pickle file with per slice scores.")
     parser.add_argument("--output_folder", default="", type=str,
                         help="")
 
@@ -110,7 +112,7 @@ def main():
 
         per_slice_results = []
         for slice_function in slicing_functions[args.task_name] + [all_instances]:
-            # This only acepts a single fine tuned bert slicing function for each task.
+            # This only accepts a single fine tuned bert slicing function for each task.
             if "fine_tuned_bert_pred" in slice_function.name:
                 if os.path.isfile(args.data_dir+"/cached_ft_predictions_valid.pickle"):
                     with open(args.data_dir+"/cached_ft_predictions_valid.pickle", "rb") as f:
@@ -151,7 +153,17 @@ def main():
     all_eval_dfs.sort_values(["model", "value"]).to_csv(args.output_folder+"res_"+args.task_name)
 
     # calculating delta between baseline and competitor approach
+    slice_membership_s = []
+    with open(args.slice_scores_file, 'rb') as f:
+        slice_membership_scores = pickle.load(f)
+        for k in slice_membership_scores.keys():
+            if 'ind' in k and 'base' not in k and 'f1' in k :
+                slice_membership_s.append([k.split(":")[1].split("_ind")[0],
+                                             slice_membership_scores[k]])
+    slice_membership_s_df = pd.DataFrame(slice_membership_s, columns=['slice', 'slice_membership_f1'])
+
     df_final = reduce(lambda left, right: pd.merge(left, right, on='slice'), eval_dfs)
+    df_final = df_final.merge(slice_membership_s_df, on='slice')
     df_final['delta'] = df_final['value_y']-df_final['value_x']
     df_final['p_value'] = df_final.apply(lambda x,f=scipy.stats.ttest_ind:
                                          f(x['all_values_y'], x['all_values_x'])[1], axis=1)
