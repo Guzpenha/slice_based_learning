@@ -307,10 +307,6 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
                 representations.append(output[:,0,:].cpu()) # get only CLS token rep
 
         if args.model_type == 'bert-slice-aware' or args.model_type == 'bert-slice-aware-random-slices':
-            if output_predictions:
-                model.base_task.module_pool['base_architecture'].\
-                    module.module.bert.encoder.layer[11].output.dense.\
-                    register_forward_hook(get_cls_rep)
 
             sfs = slicing_functions[args.task_name]
             processor = slicing_processors[args.task_name]()
@@ -339,14 +335,20 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
                 batch_size=args.eval_batch_size
             )
 
+            if not args.debug_mode:
+                slice_membership_scores = model.score([dev_dl_slice])
+
+            if output_predictions:
+                model.base_task.module_pool['base_architecture'].\
+                    module.module.bert.encoder.layer[11].output.dense.\
+                    register_forward_hook(get_cls_rep)
+
             pred_dict = model.predict(dev_dl_slice,
                                       debug_mode = args.debug_mode,
                                       return_preds=True)
             preds = pred_dict['probs']['labels']
             out_label_ids = pred_dict['golds']['labels']
 
-            if not args.debug_mode:
-                slice_membership_scores = model.score([dev_dl_slice])
         else:
             if output_predictions:
                 model.bert.encoder.layer[11].output.dense. \
