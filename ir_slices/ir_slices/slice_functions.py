@@ -57,7 +57,7 @@ def words_match_count_less_than(x, threshold):
 def docs_sim_to_rel_bigger_than(x, threshold, top_k):
     docs = [" ".join(doc.split(" ")[0:min(len(doc.split(" ")), 20)])
             for doc in x.documents]
-    tf_idf_vectorizer = TfidfVectorizer()
+    tf_idf_vectorizer = TfidfVectorizer(stop_words=None)
     tf_idf_docs = tf_idf_vectorizer.\
         fit_transform(docs)
     cosine_similarities = cosine_similarity(tf_idf_docs[0:1],
