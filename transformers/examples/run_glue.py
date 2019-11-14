@@ -165,7 +165,17 @@ def train(args, train_dataset, model, tokenizer):
         examples_train = processor.get_train_examples(args.data_dir)
 
         snorkel_sf_applier = SFApplier(sfs)
-        snorkel_slices_train = snorkel_sf_applier.apply(examples_train)
+
+        if os.path.isfile(args.data_dir + "/snorkel_slices_train.pickle"):
+            with open(args.data_dir + "/snorkel_slices_train.pickle", "rb") as f:
+                logger.info("loaded cached pickle for sliced train.")
+                snorkel_slices_train = pickle.load(f)
+        else:
+            snorkel_slices_train = snorkel_sf_applier.apply(examples_train)
+            with open(args.data_dir + "/snorkel_slices_train.pickle", "wb") as f:
+                pickle.dump(snorkel_slices_train, f)
+                logger.info("dumped pickle with sliced train.")
+
         snorkel_slices_with_ns = []
         for i, example in enumerate(examples_train):
             for _ in range(len(example.documents)):
