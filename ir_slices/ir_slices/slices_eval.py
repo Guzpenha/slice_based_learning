@@ -165,10 +165,18 @@ def main():
     df_final = reduce(lambda left, right: pd.merge(left, right, on='slice'), eval_dfs)
     df_final = df_final.merge(slice_membership_s_df, on='slice')
     df_final['delta'] = df_final['value_y']-df_final['value_x']
+    # delta from the random to the non-random slice-aware model
+    df_final['delta_to_random'] = df_final['value_y'] - df_final['value']
+    # delta from the random slicing functions to baseline
+    df_final['delta_random_to_baseline'] = df_final['value'] - df_final['value_x']
     df_final['p_value'] = df_final.apply(lambda x,f=scipy.stats.ttest_ind:
                                          f(x['all_values_y'], x['all_values_x'])[1], axis=1)
+    df_final['p_value_random_sf'] = df_final.apply(lambda x, f=scipy.stats.ttest_ind:
+                                         f(x['all_values'], x['all_values_x'])[1], axis=1)
     df_final['p_value<0.05'] = df_final['p_value']<0.05
     df_final['p_value<0.01'] = df_final['p_value']<0.01
+    df_final['random_p_value<0.05'] = df_final['p_value_random_sf'] < 0.05
+    df_final['random_p_value<0.01'] = df_final['p_value_random_sf'] < 0.01
     df_final.to_csv(args.output_folder+"delta_res_" + args.task_name)
 
     # generating table 1 of article
@@ -176,16 +184,21 @@ def main():
         [['task', 'model', 'value', 'ci']]
     table_1.columns = ['task', 'model', 'value', 'ci']
 
-    pvalue_all_instances = df_final[df_final['slice']=='all_instances'][['model_y','p_value<0.05']]
-    pvalue_all_instances.columns = ['model', 'p_value<0.05']
+    pvalue_all_instances = df_final[df_final['slice']=='all_instances'][['model_y','p_value<0.05', 'random_p_value<0.05']]
+    pvalue_all_instances.columns = ['model', 'p_value<0.05', 'random_sf_p_value<0.05']
     table_1 = table_1.\
         merge(pvalue_all_instances, on=['model'], how='outer'). \
         replace(np.nan, '-', regex=True)
 
     lifts = df_final.groupby('model_y')['delta'].agg(['mean', 'max']).reset_index()
     lifts.columns = ['model', 'Avg. slice lift', 'Max. slice lift']
+
+    lifts_random = df_final.groupby('model')['delta_random_to_baseline'].agg(['mean', 'max']).reset_index()
+    lifts_random.columns = ['model', 'Avg. slice lift', 'Max. slice lift']
+
+    lifts_both = pd.concat([lifts, lifts_random])
     table_1 = table_1.\
-        merge(lifts, on=['model'], how='outer'). \
+        merge(lifts_both, on=['model'], how='outer'). \
         replace(np.nan, '-', regex=True)
     print(table_1)
     table_1.to_csv(args.output_folder+"table_1_" + args.task_name)
