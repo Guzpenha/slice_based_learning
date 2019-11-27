@@ -207,7 +207,7 @@ for task in fine_tuned_bert_paths.keys():
     fine_tuned_models[task] = (model, tokenizer)
 
 cat_dicts = {}
-for task in ['ms_v2', 'mantis_10']:
+for task in ['ms_v2', 'mantis_10', 'mantis_50']:
     for split in ['train', 'valid']:#, 'test']:
         with open(base_path+"data/"+task+"/cats_"+split+".pickle", 'rb') as f:
             if task in cat_dicts:
@@ -215,7 +215,115 @@ for task in ['ms_v2', 'mantis_10']:
             else:
                 cat_dicts[task] = pickle.load(f)
 
-slicing_functions = {
+# slicing_functions_local = {
+#     "quora" : [
+#         # make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
+#         #                                                fine_tuned_models['quora'][0],
+#         #                                                fine_tuned_models['quora'][1]),
+#         make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
+#         make_query_wc_bigger_than_sf(10),
+#         make_word_in_query_sf("who"),
+#         make_word_in_query_sf("what"),
+#         make_word_in_query_sf("where"), # only 2% of dev data
+#         make_word_in_query_sf("when"), # only 1% of dev data
+#         make_word_in_query_sf("why"),
+#         make_word_in_query_sf("how"),
+#         make_words_match_count_less_than_sf(5)
+#     ],
+#     "l4": [
+#         # make_fine_tuned_bert_pred_diff_smaller_than_sf('l4', 0.2,
+#         #                                                fine_tuned_models['l4'][0],
+#         #                                                fine_tuned_models['l4'][1]),
+#         make_docs_sim_to_rel_bigger_than_sf(0.1, 2),
+#         make_query_wc_bigger_than_sf(20),
+#         # make_word_in_query_sf("who"),
+#         # make_word_in_query_sf("what"),
+#         # make_word_in_query_sf("where"),
+#         # make_word_in_query_sf("when"),
+#         # make_word_in_query_sf("why"),
+#         # make_word_in_query_sf("how"), every L4 instance is a 'how' question
+#         make_words_match_count_less_than_sf(4)
+#     ],
+#     "mantis_10":[
+#         # make_fine_tuned_bert_pred_diff_smaller_than_sf('mantis_10', 0.2,
+#         #                                                fine_tuned_models['mantis_10'][0],
+#         #                                                fine_tuned_models['mantis_10'][1]),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "apple"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "electronics"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "dba"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "physics"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "english"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "security"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "gaming"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "gis"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "askubuntu"),
+#         make_query_cat_in_sf(cat_dicts['mantis_10'], "stats"),
+#         make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
+#         make_query_wc_bigger_than_sf(400),
+#         make_word_in_query_sf("who"),
+#         make_word_in_query_sf("what"),
+#         make_word_in_query_sf("where"),
+#         make_word_in_query_sf("when"),
+#         make_word_in_query_sf("why"),
+#         make_word_in_query_sf("how"),
+#         make_words_match_count_less_than_sf(4),
+#         make_num_turns_bigger_than_sf(6)
+#     ],
+#     "ms_v2": [
+#         # make_fine_tuned_bert_pred_diff_smaller_than_sf('ms_v2', 0.1,
+#         #                                                fine_tuned_models['ms_v2'][0],
+#         #                                                fine_tuned_models['ms_v2'][1]),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Windows_Insider_Preview"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Onenote"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Skype_Windows_Desktop"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Access"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Skype_Windows_10"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Onedrive"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Onedrive_Business"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Lumia"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Games_Windows_10"),
+#         make_query_cat_in_sf(cat_dicts['ms_v2'], "Defender"),
+#         make_docs_sim_to_rel_bigger_than_sf(0.2, 2),
+#         make_query_wc_bigger_than_sf(150),
+#         make_word_in_query_sf("who"),
+#         make_word_in_query_sf("what"),
+#         make_word_in_query_sf("where"),
+#         make_word_in_query_sf("when"),
+#         make_word_in_query_sf("why"),
+#         make_word_in_query_sf("how"),
+#         make_words_match_count_less_than_sf(4),
+#         make_num_turns_bigger_than_sf(6)
+#         ],
+#     "ms_marco_adhoc":[
+#         # make_fine_tuned_bert_pred_diff_smaller_than_sf('ms_marco_adhoc', 0.1,
+#         #                                                fine_tuned_models['ms_marco_adhoc'][0],
+#         #                                                fine_tuned_models['ms_marco_adhoc'][1]),
+#          make_docs_sim_to_rel_bigger_than_sf(0.15, 2),
+#          make_query_wc_bigger_than_sf(5),
+#          make_word_in_query_sf("who"),
+#          make_word_in_query_sf("what"),
+#          make_word_in_query_sf("where"),
+#          make_word_in_query_sf("when"),
+#          make_word_in_query_sf("why"), # less than 1%
+#          make_word_in_query_sf("how"),
+#          make_words_match_count_less_than_sf(4)],
+#     "udc":[
+#         # make_fine_tuned_bert_pred_diff_smaller_than_sf('udc', 0.1,
+#         #                                                fine_tuned_models['udc'][0],
+#         #                                                fine_tuned_models['udc'][1]),
+#         make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
+#         make_query_wc_bigger_than_sf(50),
+#         make_word_in_query_sf("who"), # less than 2%
+#         make_word_in_query_sf("what"),
+#         make_word_in_query_sf("where"),
+#         make_word_in_query_sf("when"),
+#         make_word_in_query_sf("why"),
+#         make_word_in_query_sf("how"),
+#         make_words_match_count_less_than_sf(2),
+#         make_num_turns_bigger_than_sf(15)]
+# }
+
+slicing_functions = { #_production = {
     "quora" : [
         make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
                                                        fine_tuned_models['quora'][0],
@@ -258,6 +366,28 @@ slicing_functions = {
         make_query_cat_in_sf(cat_dicts['mantis_10'], "gis"),
         make_query_cat_in_sf(cat_dicts['mantis_10'], "askubuntu"),
         make_query_cat_in_sf(cat_dicts['mantis_10'], "stats"),
+        make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
+        make_query_wc_bigger_than_sf(400),
+        make_word_in_query_sf("who"),
+        make_word_in_query_sf("what"),
+        make_word_in_query_sf("where"),
+        make_word_in_query_sf("when"),
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        make_words_match_count_less_than_sf(4),
+        make_num_turns_bigger_than_sf(6)
+    ],
+    "mantis_50":[
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "apple"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "electronics"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "dba"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "physics"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "english"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "security"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "gaming"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "gis"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "askubuntu"),
+        make_query_cat_in_sf(cat_dicts['mantis_50'], "stats"),
         make_docs_sim_to_rel_bigger_than_sf(0.10, 2),
         make_query_wc_bigger_than_sf(400),
         make_word_in_query_sf("who"),
@@ -362,6 +492,18 @@ random_slicing_functions = {
         make_random_slice_percentage_sf(50,8),
         make_random_slice_percentage_sf(50,9),
         make_random_slice_percentage_sf(50,10)],
+    "mantis_50": [
+        # all_instances,
+        make_random_slice_percentage_sf(50, 1),
+        make_random_slice_percentage_sf(50, 2),
+        make_random_slice_percentage_sf(50, 3),
+        make_random_slice_percentage_sf(50, 4),
+        make_random_slice_percentage_sf(50, 5),
+        make_random_slice_percentage_sf(50, 6),
+        make_random_slice_percentage_sf(50, 7),
+        make_random_slice_percentage_sf(50, 8),
+        make_random_slice_percentage_sf(50, 9),
+        make_random_slice_percentage_sf(50, 10)],
     "ms_v2": [
         # all_instances,
         make_random_slice_percentage_sf(50,1),

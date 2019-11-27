@@ -61,6 +61,35 @@ def get_dialogue_domains_and_intent(df, task, dataset_split):
         df_join["intents"] = df_join.apply(lambda r, j=json_data_intent, f=get_intent_last_utterance: \
                                                f(r["id"], j), axis=1)
         return df_join
+    elif task == "mantis_50":
+        json_data = pd.read_json(base_path + "mantis_10/merged_"+dataset_split+".json")
+        json_data_intent = pd.read_json(base_path + "mantis_10/merged_"+dataset_split+"_intents.json")
+        json_to_tsv = pd.read_csv(base_path + "mantis_50/data_"+dataset_split+"_lookup.txt",
+                                  sep="\t", names=['id'])
+        json_to_tsv_only_label_1 = []
+        for i, r in json_to_tsv.iterrows():
+            if (i + 1) % 51 == 0:
+                json_to_tsv_only_label_1.append(r)
+        json_to_tsv_df = pd.DataFrame(json_to_tsv_only_label_1).reset_index().drop(['index'], axis=1)
+        df_join = df.join(json_to_tsv_df)
+
+        df_join["category"] = df_join.apply(lambda r, j=json_data: \
+                                                j[int(r["id"])]["category"], axis=1)
+
+        def get_intent_last_utterance(ident, json_data):
+            def isNaN(num):
+                return num != num
+
+            if int(ident) in json_data and not isNaN(json_data[int(ident)]["has_intent_labels"]):
+                all_labels = [u['intent'] for u in \
+                              json_data[int(ident)]['utterances'] if u['actor_type'] != 'agent']
+                return " ".join(flatten(all_labels))
+            else:
+                return "NOT_LABELED"
+
+        df_join["intents"] = df_join.apply(lambda r, j=json_data_intent, f=get_intent_last_utterance: \
+                                               f(r["id"], j), axis=1)
+        return df_join
 
 def load_dataset_crr(dataset_path):
     dataset = []
@@ -92,10 +121,11 @@ args = parser.parse_args()
 
 
 
-if 'ms_v2' in args.dataset_path or 'mantis_10' in args.dataset_path:
+if 'ms_v2' in args.dataset_path or 'mantis_10' in args.dataset_path \
+        or 'mantis_50' in args.dataset_path:
     dataset = load_dataset_crr(args.dataset_path)
 else:
-    raise Exception('ms_v2 and mantis_10 are the only'
+    raise Exception('ms_v2 and mantis_10/50 are the only'
                     ' available datasets with category info for queries.')
 
 df_dataset = pd.DataFrame(dataset, columns = ['label','query','response'])
