@@ -518,6 +518,7 @@ def run_experiment(args):
     if args.do_train:
         train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
         trained_model = train(args, train_dataset, model, tokenizer)
+        del(train_dataset)
         logger.info("finished training")
 
         if args.save_model and args.model_type == 'bert':
