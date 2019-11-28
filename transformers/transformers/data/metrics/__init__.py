@@ -177,7 +177,7 @@ if _has_sklearn:
 
     def glue_compute_metrics(task_name, preds, labels):
         assert len(preds) == len(labels)
-        if task_name in ["quora", "mantis_10", "mantis_50", "ms_v2", "udc", "l4", "ms_marco_adhoc"]:
+        if task_name in ["quora", "mantis_10", "mantis_50", "ms_v2", "udc", "l4", "ms_marco_adhoc", "antique"]:
             return {"map": mean_average_precision(preds, labels), "ndcg_10": ndcg_at_10(preds, labels)}
         if task_name == "cola":
             return {"mcc": matthews_corrcoef(labels, preds)}

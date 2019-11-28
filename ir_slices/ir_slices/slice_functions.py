@@ -338,6 +338,20 @@ slicing_functions = { #_production = {
         make_word_in_query_sf("how"),
         make_words_match_count_less_than_sf(5)
     ],
+    "antique": [
+        make_fine_tuned_bert_pred_diff_smaller_than_sf('quora', 0.2,
+                                                       fine_tuned_models['quora'][0],
+                                                       fine_tuned_models['quora'][1]),
+        make_docs_sim_to_rel_bigger_than_sf(0.3, 3),
+        make_query_wc_bigger_than_sf(10),
+        make_word_in_query_sf("who"),
+        make_word_in_query_sf("what"),
+        make_word_in_query_sf("where"),  # only 2% of dev data
+        make_word_in_query_sf("when"),  # only 1% of dev data
+        make_word_in_query_sf("why"),
+        make_word_in_query_sf("how"),
+        make_words_match_count_less_than_sf(5)
+    ],
     "l4": [
         make_fine_tuned_bert_pred_diff_smaller_than_sf('l4', 0.2,
                                                        fine_tuned_models['l4'][0],
@@ -466,6 +480,19 @@ random_slicing_functions = {
         make_random_slice_percentage_sf(50,8),
         make_random_slice_percentage_sf(50,9),
         make_random_slice_percentage_sf(50,10)
+    ],
+    "antique": [
+        # all_instances,
+        make_random_slice_percentage_sf(50, 1),
+        make_random_slice_percentage_sf(50, 2),
+        make_random_slice_percentage_sf(50, 3),
+        make_random_slice_percentage_sf(50, 4),
+        make_random_slice_percentage_sf(50, 5),
+        make_random_slice_percentage_sf(50, 6),
+        make_random_slice_percentage_sf(50, 7),
+        make_random_slice_percentage_sf(50, 8),
+        make_random_slice_percentage_sf(50, 9),
+        make_random_slice_percentage_sf(50, 10)
     ],
     "l4": [
         # all_instances,

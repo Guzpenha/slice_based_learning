@@ -678,6 +678,7 @@ class QAProcessorInverted(DataProcessor):
 
 glue_tasks_num_labels = {
     "l4": 2,
+    "antique":2,
     "ms_marco_adhoc": 2,
     "quora": 2,
     "mantis_10": 2,
@@ -697,6 +698,7 @@ glue_tasks_num_labels = {
 
 glue_processors = {
     "l4": QAProcessor,
+    "antique": QAProcessor,
     "ms_marco_adhoc": QAProcessor,
     "quora": QuoraProcessor,
     "mantis_10": CRRProcessor,
@@ -716,6 +718,7 @@ glue_processors = {
 }
 
 glue_output_modes = {
+    "antique": "ranking",
     "l4": "ranking",
     "ms_marco_adhoc": "ranking",
     "quora": "ranking",

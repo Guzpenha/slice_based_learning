@@ -188,8 +188,10 @@ class QAProcessor(DataProcessor):
 processors = {
     "quora": QuoraProcessor,
     "mantis_10": CRRProcessor,
+    "mantis_50": CRRProcessor,
     "ms_v2": CRRProcessor,
     "udc": CRRProcessor,
     "l4": QAProcessor,
+    "antique": QAProcessor,
     "ms_marco_adhoc": QAProcessor
 }
