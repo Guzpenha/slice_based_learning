@@ -55,7 +55,7 @@ def words_match_count_less_than(x, threshold):
                intersection(relevant_doc.split(" "))) < threshold
 
 def docs_sim_to_rel_bigger_than(x, threshold, top_k):
-    docs = [" ".join(doc.split(" ")[0:min(len(doc.split(" ")), 20)])
+    docs = [" ".join(doc.split(" ")[0:min(len(doc.split(" ")), 40)])
             for doc in x.documents]
     tf_idf_vectorizer = TfidfVectorizer(stop_words=None)
     tf_idf_docs = tf_idf_vectorizer.\
