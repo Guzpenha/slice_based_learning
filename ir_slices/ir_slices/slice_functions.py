@@ -186,8 +186,8 @@ def make_query_cat_in_sf(cat_dict, category):
     )
 
 # TODO: HPC \/
-base_path = "/Users/gustavopenha/phd/slice_based_learning/"
-# base_path = "/tudelft.net/staff-umbrella/conversationalsearch/slice_based_learning/"
+# base_path = "/Users/gustavopenha/phd/slice_based_learning/"
+base_path = "/tudelft.net/staff-umbrella/conversationalsearch/slice_based_learning/"
 
 # fine_tuned_bert_paths = {
 #     'quora': base_path+'data/quora_output/bert',
