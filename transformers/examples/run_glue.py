@@ -323,7 +323,17 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
             examples_dev = processor.get_dev_examples(args.data_dir)
 
             snorkel_sf_applier = SFApplier(sfs)
-            snorkel_slices_dev = snorkel_sf_applier.apply(examples_dev)
+
+            if os.path.isfile(args.data_dir + "/snorkel_slices_dev.pickle"):
+                with open(args.data_dir + "/snorkel_slices_dev.pickle", "rb") as f:
+                    logger.info("loaded cached pickle for sliced dev.")
+                    snorkel_slices_dev = pickle.load(f)
+            else:
+                snorkel_slices_dev = snorkel_sf_applier.apply(examples_dev)
+                with open(args.data_dir + "/snorkel_slices_dev.pickle", "wb") as f:
+                    pickle.dump(snorkel_slices_dev, f)
+                    logger.info("dumped pickle with sliced dev.")
+
             snorkel_slices_with_ns = []
             for i, example in enumerate(examples_dev):
                 for _ in range(len(example.documents)):

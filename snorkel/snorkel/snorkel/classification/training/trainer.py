@@ -100,7 +100,7 @@ class TrainerConfig(Config):
     log_writer_config: LogWriterConfig = LogWriterConfig()  # type:ignore
     optimizer: str = "adam"
     optimizer_config: OptimizerConfig = OptimizerConfig()  # type:ignore
-    lr_scheduler: str = "constant"
+    lr_scheduler: str = "linear"
     lr_scheduler_config: LRSchedulerConfig = LRSchedulerConfig()  # type:ignore
     batch_scheduler: str = "shuffled"
 
