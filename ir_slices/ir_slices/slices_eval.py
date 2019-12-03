@@ -169,9 +169,9 @@ def main():
     df_final['delta_to_random'] = df_final['value_y'] - df_final['value']
     # delta from the random slicing functions to baseline
     df_final['delta_random_to_baseline'] = df_final['value'] - df_final['value_x']
-    df_final['p_value'] = df_final.apply(lambda x,f=scipy.stats.ttest_ind:
+    df_final['p_value'] = df_final.apply(lambda x,f=scipy.stats.ttest_rel:
                                          f(x['all_values_y'], x['all_values_x'])[1], axis=1)
-    df_final['p_value_random_sf'] = df_final.apply(lambda x, f=scipy.stats.ttest_ind:
+    df_final['p_value_random_sf'] = df_final.apply(lambda x, f=scipy.stats.ttest_rel:
                                          f(x['all_values'], x['all_values_x'])[1], axis=1)
     df_final['p_value<0.05'] = df_final['p_value']<0.05
     df_final['p_value<0.01'] = df_final['p_value']<0.01
