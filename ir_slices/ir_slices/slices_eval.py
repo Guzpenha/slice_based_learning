@@ -153,7 +153,7 @@ def main():
     all_eval_dfs.sort_values(["model", "value"]).to_csv(args.output_folder+"res_"+args.task_name)
 
     # calculating delta between baseline and competitor approach
-    slice_membership_s = []
+    slice_membership_s = [['all_instances', 1.0]]
     with open(args.slice_scores_file, 'rb') as f:
         slice_membership_scores = pickle.load(f)
         for k in slice_membership_scores.keys():
@@ -186,6 +186,7 @@ def main():
 
     pvalue_all_instances = df_final[df_final['slice']=='all_instances'][['model_y','p_value<0.05', 'random_p_value<0.05']]
     pvalue_all_instances.columns = ['model', 'p_value<0.05', 'random_sf_p_value<0.05']
+
     table_1 = table_1.\
         merge(pvalue_all_instances, on=['model'], how='outer'). \
         replace(np.nan, '-', regex=True)
