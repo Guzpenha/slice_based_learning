@@ -20,6 +20,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
+    from IPython import embed
     from scipy.stats import pearsonr, spearmanr
     from sklearn.metrics import matthews_corrcoef, f1_score
     import random
@@ -70,100 +71,96 @@ if _has_sklearn:
         else:
             s /= ipos
         return s
+    #
+    #
+    # def ndcg(k=10):
+    #     def top_k(y_true, y_pred, rel_threshold=0.):
+    #         if k <= 0.:
+    #             return 0.
+    #         s = 0.
+    #         y_true = _to_list(np.squeeze(y_true).tolist())
+    #         y_pred = _to_list(np.squeeze(y_pred).tolist())
+    #         c = [v for v in zip(y_true, y_pred)]
+    #         random.shuffle(c)
+    #         c_g = sorted(c, key=lambda x: x[0], reverse=True)
+    #         c_p = sorted(c, key=lambda x: x[1], reverse=True)
+    #         idcg = 0.
+    #         ndcg = 0.
+    #         for i, (g, p) in enumerate(c_g):
+    #             if i >= k:
+    #                 break
+    #             if g > rel_threshold:
+    #                 idcg += (math.pow(2., g) - 1.) / math.log(2. + i)
+    #         for i, (g, p) in enumerate(c_p):
+    #             if i >= k:
+    #                 break
+    #             if g > rel_threshold:
+    #                 ndcg += (math.pow(2., g) - 1.) / math.log(2. + i)
+    #         if idcg == 0.:
+    #             return 0.
+    #         else:
+    #             return ndcg / idcg
+    #
+    #     return top_k
+    #
+    #
+    # def ndcg_at_10(preds, labels):
+    #     ndcgs = []
+    #     query_preds = []
+    #     query_labels = []
+    #     i = 0
+    #     ndcg_at_10 = ndcg(k=10)
+    #     for l, p in zip(labels, preds):
+    #         if (l == 1 and i != 0):
+    #             ndcgs.append(ndcg_at_10(query_labels, query_preds))
+    #             query_preds = []
+    #             query_labels = []
+    #
+    #         query_preds.append(p)
+    #         query_labels.append(l)
+    #
+    #         i += 1
+    #
+    #         if (i == len(preds)):
+    #             ndcgs.append(ndcg_at_10(query_labels, query_preds))
+    #     return sum(ndcgs) / float(len(ndcgs))
 
+    # in every dataset used, the relevant (label=1) come first than
+    # the non relevant ones (label=0) and there is always a non-relevant item.
+    def group_by_queries(preds, labels):
+        assert len(preds) == len(labels)
 
-    def ndcg(k=10):
-        def top_k(y_true, y_pred, rel_threshold=0.):
-            if k <= 0.:
-                return 0.
-            s = 0.
-            y_true = _to_list(np.squeeze(y_true).tolist())
-            y_pred = _to_list(np.squeeze(y_pred).tolist())
-            c = [v for v in zip(y_true, y_pred)]
-            random.shuffle(c)
-            c_g = sorted(c, key=lambda x: x[0], reverse=True)
-            c_p = sorted(c, key=lambda x: x[1], reverse=True)
-            idcg = 0.
-            ndcg = 0.
-            for i, (g, p) in enumerate(c_g):
-                if i >= k:
-                    break
-                if g > rel_threshold:
-                    idcg += (math.pow(2., g) - 1.) / math.log(2. + i)
-            for i, (g, p) in enumerate(c_p):
-                if i >= k:
-                    break
-                if g > rel_threshold:
-                    ndcg += (math.pow(2., g) - 1.) / math.log(2. + i)
-            if idcg == 0.:
-                return 0.
-            else:
-                return ndcg / idcg
+        i=0
+        grouped_data = []
+        while i < len(preds):
+            query_p_and_l = ([],[])
+            # get all relevant (i < preds just for local debugging where not
+            # all rel/non-rel might appear due to batch size and doing only one iter)
+            while i < len(preds) and labels[i] != 0:
+                query_p_and_l[0].append(preds[i])
+                query_p_and_l[1].append(labels[i])
+                i+=1
+            #get all non-relevant
+            while i < len(preds) and labels[i] == 0 :
+                query_p_and_l[0].append(preds[i])
+                query_p_and_l[1].append(labels[i])
+                i+=1
 
-        return top_k
+            grouped_data.append(query_p_and_l)
 
-
-    def ndcg_at_10(preds, labels):
-        ndcgs = []
-        query_preds = []
-        query_labels = []
-        i = 0
-        ndcg_at_10 = ndcg(k=10)
-        for l, p in zip(labels, preds):
-            if (l == 1 and i != 0):
-                ndcgs.append(ndcg_at_10(query_labels, query_preds))
-                query_preds = []
-                query_labels = []
-
-            query_preds.append(p)
-            query_labels.append(l)
-
-            i += 1
-
-            if (i == len(preds)):
-                ndcgs.append(ndcg_at_10(query_labels, query_preds))
-        return sum(ndcgs) / float(len(ndcgs))
-
-    def mean_average_precision(preds, labels):
-        aps = []
-        query_preds = []
-        query_labels = []
-        i = 0
-        for l, p in zip(labels, preds):
-            if (l == 1 and i != 0):
-                aps.append(ap(query_labels, query_preds))
-                query_preds = []
-                query_labels = []
-
-            query_preds.append(p)
-            query_labels.append(l)
-
-            i += 1
-
-            if (i == len(preds)):
-                aps.append(ap(query_labels, query_preds))
-        return sum(aps) / float(len(aps))
+        return grouped_data
 
 
     def compute_aps(preds, labels):
         aps = []
-        query_preds = []
-        query_labels = []
-        i = 0
-        for l, p in zip(labels, preds):
-            if (l == 1 and i != 0):
-                aps.append(ap(query_labels, query_preds))
-                query_preds = []
-                query_labels = []
-
-            query_preds.append(p)
-            query_labels.append(l)
-
-            i += 1
-
-            if (i == len(preds)):
-                aps.append(ap(query_labels, query_preds))
+        grouped_data = group_by_queries(preds, labels)
+        for p, l in grouped_data:
+            aps.append(ap(y_true=l, y_pred=p))
         return aps
+
+    def mean_average_precision(preds, labels):
+        aps = compute_aps(preds, labels)
+        return sum(aps) / float(len(aps))
 
     def pearson_and_spearman(preds, labels):
         pearson_corr = pearsonr(preds, labels)[0]
@@ -178,7 +175,7 @@ if _has_sklearn:
     def glue_compute_metrics(task_name, preds, labels):
         assert len(preds) == len(labels)
         if task_name in ["quora", "mantis_10", "mantis_50", "ms_v2", "udc", "l4", "ms_marco_adhoc", "antique"]:
-            return {"map": mean_average_precision(preds, labels), "ndcg_10": ndcg_at_10(preds, labels)}
+            return {"map": mean_average_precision(preds, labels)} #, "ndcg_10": ndcg_at_10(preds, labels)}
         if task_name == "cola":
             return {"mcc": matthews_corrcoef(labels, preds)}
         elif task_name == "sst-2":

@@ -12,22 +12,21 @@ csv.field_size_limit(sys.maxsize)
 
 def transform_to_q_docs_format(examples):
     """
-    Groups examples of each query.
-    BE CAREFUL! This function assumes that every query has only one relevant document.
+    Groups examples by query. (dataset must be ordered by query)
     """
-    doc_q_examples = []
-    docs = []
-    labels = []
-    for i, example in enumerate(examples):
-        if example[2] == "1" and i!=0:
-            doc_q_examples.append([examples[i-1][0], docs, labels])
-            docs = []
-            labels = []
-        docs.append(example[1])
-        labels.append(example[2])
 
-        if i == (len(examples)-1):
-            doc_q_examples.append([example[0], docs, labels])
+    doc_q_examples = []
+    docs, labels = [], []
+    for i, ex in enumerate(examples):
+        docs.append(ex[1])
+        labels.append(ex[2])
+
+        if i == len(examples)-1:
+            doc_q_examples.append([ex[0], docs, labels])
+        elif ex[0] != examples[i+1][0]:
+            doc_q_examples.append([ex[0], docs, labels])
+            docs, labels = [], []
+
     return doc_q_examples
 
 class InputExample(object):
