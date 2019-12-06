@@ -192,5 +192,6 @@ processors = {
     "udc": CRRProcessor,
     "l4": QAProcessor,
     "antique": QAProcessor,
-    "ms_marco_adhoc": QAProcessor
+    "ms_marco_adhoc": QAProcessor,
+    "ms_marco_passage": QAProcessor
 }
