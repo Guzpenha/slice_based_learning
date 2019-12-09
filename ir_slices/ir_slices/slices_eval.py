@@ -95,7 +95,6 @@ def main():
 
         if rep_file != "":
             df_rep = pd.DataFrame(torch.load(rep_file, map_location='cpu').numpy())
-            num_instances_rep = df_rep.shape[0]
             df_tsne = TSNE(n_components=2, verbose=True).fit_transform(df_rep)
             df_rep['TSNE_0'] = df_tsne[:, 0]
             df_rep['TSNE_1'] = df_tsne[:, 1]
@@ -105,8 +104,10 @@ def main():
             df_rep['PC_1'] = df_pca[:, 1]
 
             df_rep['model'] = model_name
-            df_rep[eval_metrics[0]] = unpack_x_per_doc(df_eval[eval_metrics[0]].values,
-                                                       examples)[:num_instances_rep]
+            unpacked_x = unpack_x_per_doc(df_eval[eval_metrics[0]].values,
+                                                       examples)
+            num_instances_rep = min(df_rep.shape[0], len(unpacked_x))
+            df_rep[eval_metrics[0]] = unpacked_x[:num_instances_rep]
             df_rep['relevant'] = unpack_rel_per_doc(examples)[:num_instances_rep]
             df_rep['q_id'] = unpack_qid_per_doc(examples)[:num_instances_rep]
 
