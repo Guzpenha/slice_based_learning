@@ -26,7 +26,8 @@ def transform_to_q_docs_format(examples):
         elif ex[0] != examples[i+1][0]:
             doc_q_examples.append([ex[0], docs, labels])
             docs, labels = [], []
-
+    line_count = sum([len(x[1]) for x in doc_q_examples])
+    assert line_count == len(examples)
     return doc_q_examples
 
 class InputExample(object):

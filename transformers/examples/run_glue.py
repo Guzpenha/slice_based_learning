@@ -207,7 +207,8 @@ def train(args, train_dataset, model, tokenizer):
                           n_epochs=int(args.num_train_epochs),
                           l2=args.weight_decay,
                           optimizer="adamax",
-                          max_steps=args.max_steps)
+                          max_steps=args.max_steps,
+                          seed=args.seed)
 
         trainer.fit(slice_model, [train_dl_slice])
         model = slice_model
@@ -317,7 +318,6 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
                 representations.append(output[:,0,:].cpu()) # get only CLS token rep
 
         if args.model_type == 'bert-slice-aware' or args.model_type == 'bert-slice-aware-random-slices':
-
             sfs = slicing_functions[args.task_name]
             processor = slicing_processors[args.task_name]()
             examples_dev = processor.get_dev_examples(args.data_dir)
