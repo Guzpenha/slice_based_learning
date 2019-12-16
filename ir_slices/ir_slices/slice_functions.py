@@ -208,7 +208,7 @@ base_path = "/tudelft.net/staff-umbrella/conversationalsearch/slice_based_learni
 
 cat_dicts = {}
 for task in ['ms_v2', 'mantis_10', 'mantis_50']:
-    for split in ['train', 'valid']:#, 'test']:
+    for split in ['train', 'valid', 'test']:
         with open(base_path+"data/"+task+"/cats_"+split+".pickle", 'rb') as f:
             if task in cat_dicts:
                 cat_dicts[task].update(pickle.load(f))

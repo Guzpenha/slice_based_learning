@@ -91,7 +91,11 @@ def main():
                                                      rep_files):
         df_eval = pd.read_csv(model_eval_file, names=eval_metrics)
         processor = processors[args.task_name]()
-        examples = processor.get_dev_examples(args.data_dir)
+
+        if args.task_name == 'antique':
+            examples = processor.get_dev_examples(args.data_dir)
+        else:
+            examples = processor.get_test_examples(args.data_dir)
 
         if rep_file != "":
             df_rep = pd.DataFrame(torch.load(rep_file, map_location='cpu').numpy())

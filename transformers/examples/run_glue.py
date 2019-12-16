@@ -293,7 +293,7 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
 
     results = {}
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
-        eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
+        eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, used_set=args.evaluate_on)
 
         if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
             os.makedirs(eval_output_dir)
@@ -320,19 +320,22 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
         if args.model_type == 'bert-slice-aware' or args.model_type == 'bert-slice-aware-random-slices':
             sfs = slicing_functions[args.task_name]
             processor = slicing_processors[args.task_name]()
-            examples_dev = processor.get_dev_examples(args.data_dir)
+            if args.evaluate_on == 'dev' or args.task_name == 'antique':
+                examples_dev = processor.get_dev_examples(args.data_dir)
+            else:
+                examples_dev = processor.get_test_examples(args.data_dir)
 
             snorkel_sf_applier = SFApplier(sfs)
 
-            if os.path.isfile(args.data_dir + "/snorkel_slices_dev.pickle"):
-                with open(args.data_dir + "/snorkel_slices_dev.pickle", "rb") as f:
-                    logger.info("loaded cached pickle for sliced dev.")
+            if os.path.isfile(args.data_dir + "/snorkel_slices_"+args.evaluate_on+".pickle"):
+                with open(args.data_dir + "/snorkel_slices_"+args.evaluate_on+".pickle", "rb") as f:
+                    logger.info("loaded cached pickle for sliced " + args.evaluate_on)
                     snorkel_slices_dev = pickle.load(f)
             else:
                 snorkel_slices_dev = snorkel_sf_applier.apply(examples_dev)
-                with open(args.data_dir + "/snorkel_slices_dev.pickle", "wb") as f:
+                with open(args.data_dir + "/snorkel_slices_"+args.evaluate_on+".pickle", "wb") as f:
                     pickle.dump(snorkel_slices_dev, f)
-                    logger.info("dumped pickle with sliced dev.")
+                    logger.info("dumped pickle with sliced " + args.evaluate_on)
 
             snorkel_slices_with_ns = []
             for i, example in enumerate(examples_dev):
@@ -348,7 +351,7 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
             Y_dict = {'labels': eval_dataset.tensors[3]}
 
             ds = DictDataset(name='labels',
-                             split='dev', X_dict=X_dict, Y_dict=Y_dict)
+                             split=args.evaluate_on, X_dict=X_dict, Y_dict=Y_dict)
 
             dev_dl_slice = model.make_slice_dataloader(
                 ds, snorkel_slices_with_ns_np, shuffle=False,
@@ -436,15 +439,15 @@ def evaluate(args, model, tokenizer, prefix="", output_predictions=False, sample
 
     return results
 
-def load_and_cache_examples(args, task, tokenizer, evaluate=False):
-    if args.local_rank not in [-1, 0] and not evaluate:
+def load_and_cache_examples(args, task, tokenizer, used_set):
+    if args.local_rank not in [-1, 0] and used_set == 'train':
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
     processor = processors[task]()
     output_mode = output_modes[task]
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(args.data_dir, 'cached_{}_{}_{}_{}'.format(
-        'dev' if evaluate else 'train',
+        used_set,
         list(filter(None, args.model_name_or_path.split('/'))).pop(),
         str(args.max_seq_length),
         str(task)))
@@ -457,8 +460,13 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         if task in ['mnli', 'mnli-mm'] and args.model_type in ['roberta']:
             # HACK(label indices are swapped in RoBERTa pretrained model)
             label_list[1], label_list[2] = label_list[2], label_list[1]
-        examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(
-            args.data_dir)
+        if(used_set == 'train'):
+            examples = processor.get_train_examples(args.data_dir)
+        elif(used_set == 'dev' or args.task_name == 'antique'):
+            examples = processor.get_dev_examples(args.data_dir)
+        elif(used_set == 'test'):
+            examples = processor.get_test_examples(args.data_dir)
+
         features = convert_examples_to_features(examples,
                                                 tokenizer,
                                                 label_list=label_list,
@@ -473,7 +481,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
             logger.info("Saving features into cached file %s", cached_features_file)
             torch.save(features, cached_features_file)
 
-    if args.local_rank == 0 and not evaluate:
+    if args.local_rank == 0 and used_set == 'train':
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
     # Convert to Tensors and build dataset
@@ -526,7 +534,7 @@ def run_experiment(args):
 
     # Training
     if args.do_train:
-        train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
+        train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, used_set='train')
         trained_model = train(args, train_dataset, model, tokenizer)
         del(train_dataset)
         logger.info("finished training")
@@ -661,6 +669,8 @@ def main():
                         help="Overwrite the cached training and evaluation sets")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
+    parser.add_argument('--evaluate_on', type=str, default='dev',
+                        help="Which set to evaluate the model on ['dev', 'test'].")
 
     parser.add_argument('--fp16', action='store_true',
                         help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit")
