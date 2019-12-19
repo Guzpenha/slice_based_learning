@@ -206,7 +206,8 @@ def main():
         merge(lifts_both, on=['model'], how='outer'). \
         replace(np.nan, '-', regex=True)
     print(table_1)
-    table_1.to_csv(args.output_folder+"table_1_" + args.task_name, sep='\t')
+    table_1.round(3).sort_values('value').\
+        to_csv(args.output_folder+"table_1_" + args.task_name, sep='\t')
 
 if __name__ == "__main__":
     main()
