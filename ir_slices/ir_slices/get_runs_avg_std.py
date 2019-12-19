@@ -27,6 +27,7 @@ def main():
                  for run in runs]
     all_res = []
     for f_run_path, f_config_path in run_files:
+        print(f_run_path)
         with open(f_run_path, 'r') as f_run, open(f_config_path, 'r') as f_config:
             res = json.load(f_run)
             config = json.load(f_config)
@@ -37,7 +38,7 @@ def main():
     agg_df = out_df.groupby("model").agg(['mean', 'std', 'count', 'max'])
     agg_df['model'] = args.task_name
     agg_df.to_csv(args.output_folder+args.task_name+"_agg_res.txt",
-                  sep='\t', index=False)
+                  sep='\t')
 
 if __name__ == "__main__":
     main()
