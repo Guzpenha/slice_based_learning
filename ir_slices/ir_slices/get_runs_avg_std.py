@@ -48,7 +48,7 @@ def main():
     agg_df['Avg. MAP (std)'] = agg_df.apply(lambda r: str(r['Avg. MAP']) + " (." + str(r['std']).split(".")[1] + ")", axis=1)
     agg_df[['dataset', 'model', 'Avg. MAP (std)', 'max', 'count', 'run']].sort_values("max").\
         to_csv(args.output_folder+args.task_name+"_agg_res.txt",
-                  sep='\t')
+                  sep='\t', index=False)
 
 if __name__ == "__main__":
     main()
