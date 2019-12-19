@@ -33,11 +33,21 @@ def main():
             config = json.load(f_config)
             map = res['result']['map']
             model = config['args']['model_type']
-            all_res.append([model, map])
-    out_df = pd.DataFrame(all_res, columns=['model', 'map'])
-    agg_df = out_df.groupby("model").agg(['mean', 'std', 'count', 'max'])
-    agg_df['model'] = args.task_name
-    agg_df.to_csv(args.output_folder+args.task_name+"_agg_res.txt",
+            all_res.append([model, map, f_run_path.split('data')[-1]])
+    out_df = pd.DataFrame(all_res, columns=['model', 'map', 'run'])
+    arg_max = out_df.sort_values('map', ascending=False).drop_duplicates(['model'])
+
+    agg_df = out_df.groupby("model").\
+        agg(['mean', 'std', 'count', 'max']).\
+        reset_index().round(3)
+    agg_df['dataset'] = args.task_name
+    agg_df.columns = ['model','Avg. MAP', 'std', 'count', 'max', 'dataset']
+    agg_df = agg_df.merge(arg_max[['model', 'run']], on='model')
+    agg_df['model'] = agg_df.apply(lambda r: r['model'].upper(), axis=1)
+    agg_df['model'][agg_df['model']!= 'BERT'] = agg_df[agg_df['model']!= 'BERT'].apply(lambda r: "\\bertsliceaware" if r['model'] == 'BERT-SLICE-AWARE' else "\\bertsliceawarerandom", axis=1)
+    agg_df['Avg. MAP (std)'] = agg_df.apply(lambda r: str(r['Avg. MAP']) + " (." + str(r['std']).split(".")[1] + ")", axis=1)
+    agg_df[['dataset', 'model', 'Avg. MAP (std)', 'max', 'count', 'run']].sort_values("max").\
+        to_csv(args.output_folder+args.task_name+"_agg_res.txt",
                   sep='\t')
 
 if __name__ == "__main__":
