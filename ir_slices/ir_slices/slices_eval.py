@@ -209,5 +209,29 @@ def main():
     table_1.round(3).sort_values('value').\
         to_csv(args.output_folder+"table_1_" + args.task_name, sep='\t')
 
+    delta_min_table = df_final[['delta', 'slice_membership_f1', '%_x', 'value_x']]
+    delta_min_table.columns = ['delta', 'slice membership F1', 'slice size', 'slice baseline MAP']
+
+    cor_table = []
+    for column in delta_min_table.columns:
+        if column != 'delta':
+            corr, pvalue = scipy.stats.pearsonr(delta_min_table['delta'],
+                                                delta_min_table[column])
+            corr_k, pvalue_k  = scipy.stats.kendalltau(delta_min_table['delta'],
+                                                delta_min_table[column])
+            cor_table.append([column, corr, pvalue, corr_k, pvalue_k])
+    cor_table_df = pd.DataFrame(cor_table, columns=['property',
+                                                    'pearson',
+                                                    'pvalue-p',
+                                                    'kendall',
+                                                    'pvalue-k'])
+    cor_table_df['task'] = args.task_name
+    cor_table_df[['task', 'property',
+                  'pearson', 'pvalue-p',
+                  'kendall','pvalue-k']].\
+        to_csv(args.output_folder+"_corr_table_" + args.task_name, sep='\t',
+                        index=False)
+    embed()
+
 if __name__ == "__main__":
     main()
