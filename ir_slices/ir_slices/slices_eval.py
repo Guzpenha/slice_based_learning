@@ -96,7 +96,6 @@ def main():
             examples = processor.get_dev_examples(args.data_dir)
         else:
             examples = processor.get_test_examples(args.data_dir)
-
         if rep_file != "":
             df_rep = pd.DataFrame(torch.load(rep_file, map_location='cpu').numpy())
             num_instances_rep = df_rep.shape[0]
@@ -231,7 +230,6 @@ def main():
                   'kendall','pvalue-k']].\
         to_csv(args.output_folder+"_corr_table_" + args.task_name, sep='\t',
                         index=False)
-    embed()
 
 if __name__ == "__main__":
     main()
