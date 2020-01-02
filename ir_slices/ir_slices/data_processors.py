@@ -10,7 +10,7 @@ from IPython import embed
 
 csv.field_size_limit(sys.maxsize)
 
-def transform_to_q_docs_format(examples):
+def transform_to_q_docs_format(examples, multiple_pos_labels=False):
     """
     Groups examples by query. (dataset must be ordered by query)
     """
@@ -23,10 +23,16 @@ def transform_to_q_docs_format(examples):
 
         if i == len(examples)-1:
             doc_q_examples.append([ex[0], docs, labels])
-        elif ex[0] != examples[i+1][0] or\
-                (ex[2] != examples[i+1][2] and len(labels) != 1):
-            doc_q_examples.append([ex[0], docs, labels])
-            docs, labels = [], []
+        else:
+            if multiple_pos_labels:
+                if ex[0] != examples[i+1][0]:
+                    doc_q_examples.append([ex[0], docs, labels])
+                    docs, labels = [], []
+            else:
+                if ex[0] != examples[i+1][0] or\
+                    (ex[2] != examples[i+1][2] and len(labels) != 1):
+                    doc_q_examples.append([ex[0], docs, labels])
+                    docs, labels = [], []
     line_count = sum([len(x[1]) for x in doc_q_examples])
     assert line_count == len(examples)
     return doc_q_examples
@@ -179,7 +185,7 @@ class QAProcessor(DataProcessor):
             query = line[1]
             doc = line[2]
             q_doc_lines.append([query, doc, label])
-        lines_by_q = transform_to_q_docs_format(q_doc_lines)
+        lines_by_q = transform_to_q_docs_format(q_doc_lines, multiple_pos_labels=True)
         examples = []
         for i, line in enumerate(lines_by_q):
             id = "%s-%s" % (set_type, i)
