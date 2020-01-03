@@ -72,7 +72,8 @@ from snorkel.slicing import SFApplier
 from snorkel.classification.data import DictDataset
 
 from ir_slices.data_processors import processors as slicing_processors
-from ir_slices.slice_functions import slicing_functions, random_slicing_functions
+from ir_slices.slice_functions import slicing_functions, \
+    random_slicing_functions, make_random_slice_percentage_sf
 
 ex = Experiment('sacred_bert')
 representations = []
@@ -160,7 +161,10 @@ def train(args, train_dataset, model, tokenizer):
         if args.model_type == 'bert-slice-aware':
             sfs = slicing_functions[args.task_name]
         elif args.model_type == 'bert-slice-aware-random-slices':
-            sfs = random_slicing_functions[args.task_name]
+            if args.number_random_slices is None or args.size_random_slices is None:
+                sfs = random_slicing_functions[args.task_name]
+            else:
+                sfs = args.sfs
         processor = slicing_processors[args.task_name]()
         examples_train = processor.get_train_examples(args.data_dir)
 
@@ -683,6 +687,10 @@ def main():
     parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
     parser.add_argument('--debug_mode', action="store_true", help="Debug mode: break after one eval iteration.")
+    parser.add_argument('--number_random_slices', type=int, default=None,
+                        help='Number of random slices (used only if model is bert-slice-aware-random-slices)')
+    parser.add_argument('--size_random_slices', type=int, default=None,
+                        help='Percentual size of random slices (used only if model is bert-slice-aware-random-slices)')
     args = parser.parse_args()
 
     if os.path.exists(args.output_dir) and os.listdir(
@@ -723,7 +731,14 @@ def main():
     if args.model_type == 'bert-slice-aware':
         args.slicing_functions =  [sf.name for sf in slicing_functions[args.task_name]]
     if args.model_type == 'bert-slice-aware-random-slices':
-        args.slicing_functions = [sf.name for sf in random_slicing_functions[args.task_name]]
+        if args.number_random_slices is None or args.size_random_slices is None:
+            args.slicing_functions = [sf.name for sf in random_slicing_functions[args.task_name]]
+        else:
+            args.sfs = [
+                make_random_slice_percentage_sf(args.size_random_slices, i) for i in \
+                    range(args.number_random_slices)
+            ]
+            args.slicing_functions = [sf.name for sf in args.sfs]
     ex.add_config({'args': args})
     return ex.run()
 
